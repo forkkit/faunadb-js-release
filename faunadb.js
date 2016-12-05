@@ -193,964 +193,1158 @@ Emitter.prototype.hasListeners = function(event){
  * @overview es6-promise - a tiny implementation of Promises/A+.
  * @copyright Copyright (c) 2014 Yehuda Katz, Tom Dale, Stefan Penner and contributors (Conversion to ES6 API by Jake Archibald)
  * @license   Licensed under MIT license
- *            See https://raw.githubusercontent.com/jakearchibald/es6-promise/master/LICENSE
- * @version   3.2.1
+ *            See https://raw.githubusercontent.com/stefanpenner/es6-promise/master/LICENSE
+ * @version   3.3.1
  */
 
-(function() {
-    "use strict";
-    function lib$es6$promise$utils$$objectOrFunction(x) {
-      return typeof x === 'function' || (typeof x === 'object' && x !== null);
-    }
+(function (global, factory) {
+    typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
+    typeof define === 'function' && define.amd ? define(factory) :
+    (global.ES6Promise = factory());
+}(this, (function () { 'use strict';
 
-    function lib$es6$promise$utils$$isFunction(x) {
-      return typeof x === 'function';
-    }
+function objectOrFunction(x) {
+  return typeof x === 'function' || typeof x === 'object' && x !== null;
+}
 
-    function lib$es6$promise$utils$$isMaybeThenable(x) {
-      return typeof x === 'object' && x !== null;
-    }
+function isFunction(x) {
+  return typeof x === 'function';
+}
 
-    var lib$es6$promise$utils$$_isArray;
-    if (!Array.isArray) {
-      lib$es6$promise$utils$$_isArray = function (x) {
-        return Object.prototype.toString.call(x) === '[object Array]';
-      };
+var _isArray = undefined;
+if (!Array.isArray) {
+  _isArray = function (x) {
+    return Object.prototype.toString.call(x) === '[object Array]';
+  };
+} else {
+  _isArray = Array.isArray;
+}
+
+var isArray = _isArray;
+
+var len = 0;
+var vertxNext = undefined;
+var customSchedulerFn = undefined;
+
+var asap = function asap(callback, arg) {
+  queue[len] = callback;
+  queue[len + 1] = arg;
+  len += 2;
+  if (len === 2) {
+    // If len is 2, that means that we need to schedule an async flush.
+    // If additional callbacks are queued before the queue is flushed, they
+    // will be processed by this flush that we are scheduling.
+    if (customSchedulerFn) {
+      customSchedulerFn(flush);
     } else {
-      lib$es6$promise$utils$$_isArray = Array.isArray;
+      scheduleFlush();
     }
+  }
+};
+
+function setScheduler(scheduleFn) {
+  customSchedulerFn = scheduleFn;
+}
+
+function setAsap(asapFn) {
+  asap = asapFn;
+}
+
+var browserWindow = typeof window !== 'undefined' ? window : undefined;
+var browserGlobal = browserWindow || {};
+var BrowserMutationObserver = browserGlobal.MutationObserver || browserGlobal.WebKitMutationObserver;
+var isNode = typeof self === 'undefined' && typeof process !== 'undefined' && ({}).toString.call(process) === '[object process]';
+
+// test for web worker but not in IE10
+var isWorker = typeof Uint8ClampedArray !== 'undefined' && typeof importScripts !== 'undefined' && typeof MessageChannel !== 'undefined';
+
+// node
+function useNextTick() {
+  // node version 0.10.x displays a deprecation warning when nextTick is used recursively
+  // see https://github.com/cujojs/when/issues/410 for details
+  return function () {
+    return process.nextTick(flush);
+  };
+}
+
+// vertx
+function useVertxTimer() {
+  return function () {
+    vertxNext(flush);
+  };
+}
+
+function useMutationObserver() {
+  var iterations = 0;
+  var observer = new BrowserMutationObserver(flush);
+  var node = document.createTextNode('');
+  observer.observe(node, { characterData: true });
+
+  return function () {
+    node.data = iterations = ++iterations % 2;
+  };
+}
+
+// web worker
+function useMessageChannel() {
+  var channel = new MessageChannel();
+  channel.port1.onmessage = flush;
+  return function () {
+    return channel.port2.postMessage(0);
+  };
+}
+
+function useSetTimeout() {
+  // Store setTimeout reference so es6-promise will be unaffected by
+  // other code modifying setTimeout (like sinon.useFakeTimers())
+  var globalSetTimeout = setTimeout;
+  return function () {
+    return globalSetTimeout(flush, 1);
+  };
+}
+
+var queue = new Array(1000);
+function flush() {
+  for (var i = 0; i < len; i += 2) {
+    var callback = queue[i];
+    var arg = queue[i + 1];
+
+    callback(arg);
+
+    queue[i] = undefined;
+    queue[i + 1] = undefined;
+  }
+
+  len = 0;
+}
+
+function attemptVertx() {
+  try {
+    var r = require;
+    var vertx = r('vertx');
+    vertxNext = vertx.runOnLoop || vertx.runOnContext;
+    return useVertxTimer();
+  } catch (e) {
+    return useSetTimeout();
+  }
+}
+
+var scheduleFlush = undefined;
+// Decide what async method to use to triggering processing of queued callbacks:
+if (isNode) {
+  scheduleFlush = useNextTick();
+} else if (BrowserMutationObserver) {
+  scheduleFlush = useMutationObserver();
+} else if (isWorker) {
+  scheduleFlush = useMessageChannel();
+} else if (browserWindow === undefined && typeof require === 'function') {
+  scheduleFlush = attemptVertx();
+} else {
+  scheduleFlush = useSetTimeout();
+}
 
-    var lib$es6$promise$utils$$isArray = lib$es6$promise$utils$$_isArray;
-    var lib$es6$promise$asap$$len = 0;
-    var lib$es6$promise$asap$$vertxNext;
-    var lib$es6$promise$asap$$customSchedulerFn;
-
-    var lib$es6$promise$asap$$asap = function asap(callback, arg) {
-      lib$es6$promise$asap$$queue[lib$es6$promise$asap$$len] = callback;
-      lib$es6$promise$asap$$queue[lib$es6$promise$asap$$len + 1] = arg;
-      lib$es6$promise$asap$$len += 2;
-      if (lib$es6$promise$asap$$len === 2) {
-        // If len is 2, that means that we need to schedule an async flush.
-        // If additional callbacks are queued before the queue is flushed, they
-        // will be processed by this flush that we are scheduling.
-        if (lib$es6$promise$asap$$customSchedulerFn) {
-          lib$es6$promise$asap$$customSchedulerFn(lib$es6$promise$asap$$flush);
-        } else {
-          lib$es6$promise$asap$$scheduleFlush();
-        }
-      }
-    }
-
-    function lib$es6$promise$asap$$setScheduler(scheduleFn) {
-      lib$es6$promise$asap$$customSchedulerFn = scheduleFn;
-    }
-
-    function lib$es6$promise$asap$$setAsap(asapFn) {
-      lib$es6$promise$asap$$asap = asapFn;
-    }
-
-    var lib$es6$promise$asap$$browserWindow = (typeof window !== 'undefined') ? window : undefined;
-    var lib$es6$promise$asap$$browserGlobal = lib$es6$promise$asap$$browserWindow || {};
-    var lib$es6$promise$asap$$BrowserMutationObserver = lib$es6$promise$asap$$browserGlobal.MutationObserver || lib$es6$promise$asap$$browserGlobal.WebKitMutationObserver;
-    var lib$es6$promise$asap$$isNode = typeof self === 'undefined' && typeof process !== 'undefined' && {}.toString.call(process) === '[object process]';
-
-    // test for web worker but not in IE10
-    var lib$es6$promise$asap$$isWorker = typeof Uint8ClampedArray !== 'undefined' &&
-      typeof importScripts !== 'undefined' &&
-      typeof MessageChannel !== 'undefined';
-
-    // node
-    function lib$es6$promise$asap$$useNextTick() {
-      // node version 0.10.x displays a deprecation warning when nextTick is used recursively
-      // see https://github.com/cujojs/when/issues/410 for details
-      return function() {
-        process.nextTick(lib$es6$promise$asap$$flush);
-      };
-    }
-
-    // vertx
-    function lib$es6$promise$asap$$useVertxTimer() {
-      return function() {
-        lib$es6$promise$asap$$vertxNext(lib$es6$promise$asap$$flush);
-      };
-    }
-
-    function lib$es6$promise$asap$$useMutationObserver() {
-      var iterations = 0;
-      var observer = new lib$es6$promise$asap$$BrowserMutationObserver(lib$es6$promise$asap$$flush);
-      var node = document.createTextNode('');
-      observer.observe(node, { characterData: true });
-
-      return function() {
-        node.data = (iterations = ++iterations % 2);
-      };
-    }
-
-    // web worker
-    function lib$es6$promise$asap$$useMessageChannel() {
-      var channel = new MessageChannel();
-      channel.port1.onmessage = lib$es6$promise$asap$$flush;
-      return function () {
-        channel.port2.postMessage(0);
-      };
-    }
-
-    function lib$es6$promise$asap$$useSetTimeout() {
-      return function() {
-        setTimeout(lib$es6$promise$asap$$flush, 1);
-      };
-    }
-
-    var lib$es6$promise$asap$$queue = new Array(1000);
-    function lib$es6$promise$asap$$flush() {
-      for (var i = 0; i < lib$es6$promise$asap$$len; i+=2) {
-        var callback = lib$es6$promise$asap$$queue[i];
-        var arg = lib$es6$promise$asap$$queue[i+1];
-
-        callback(arg);
-
-        lib$es6$promise$asap$$queue[i] = undefined;
-        lib$es6$promise$asap$$queue[i+1] = undefined;
-      }
-
-      lib$es6$promise$asap$$len = 0;
-    }
-
-    function lib$es6$promise$asap$$attemptVertx() {
-      try {
-        var r = require;
-        var vertx = r('vertx');
-        lib$es6$promise$asap$$vertxNext = vertx.runOnLoop || vertx.runOnContext;
-        return lib$es6$promise$asap$$useVertxTimer();
-      } catch(e) {
-        return lib$es6$promise$asap$$useSetTimeout();
-      }
-    }
-
-    var lib$es6$promise$asap$$scheduleFlush;
-    // Decide what async method to use to triggering processing of queued callbacks:
-    if (lib$es6$promise$asap$$isNode) {
-      lib$es6$promise$asap$$scheduleFlush = lib$es6$promise$asap$$useNextTick();
-    } else if (lib$es6$promise$asap$$BrowserMutationObserver) {
-      lib$es6$promise$asap$$scheduleFlush = lib$es6$promise$asap$$useMutationObserver();
-    } else if (lib$es6$promise$asap$$isWorker) {
-      lib$es6$promise$asap$$scheduleFlush = lib$es6$promise$asap$$useMessageChannel();
-    } else if (lib$es6$promise$asap$$browserWindow === undefined && typeof require === 'function') {
-      lib$es6$promise$asap$$scheduleFlush = lib$es6$promise$asap$$attemptVertx();
-    } else {
-      lib$es6$promise$asap$$scheduleFlush = lib$es6$promise$asap$$useSetTimeout();
-    }
-    function lib$es6$promise$then$$then(onFulfillment, onRejection) {
-      var parent = this;
-
-      var child = new this.constructor(lib$es6$promise$$internal$$noop);
-
-      if (child[lib$es6$promise$$internal$$PROMISE_ID] === undefined) {
-        lib$es6$promise$$internal$$makePromise(child);
-      }
-
-      var state = parent._state;
-
-      if (state) {
-        var callback = arguments[state - 1];
-        lib$es6$promise$asap$$asap(function(){
-          lib$es6$promise$$internal$$invokeCallback(state, child, callback, parent._result);
-        });
-      } else {
-        lib$es6$promise$$internal$$subscribe(parent, child, onFulfillment, onRejection);
-      }
-
-      return child;
-    }
-    var lib$es6$promise$then$$default = lib$es6$promise$then$$then;
-    function lib$es6$promise$promise$resolve$$resolve(object) {
-      /*jshint validthis:true */
-      var Constructor = this;
-
-      if (object && typeof object === 'object' && object.constructor === Constructor) {
-        return object;
-      }
-
-      var promise = new Constructor(lib$es6$promise$$internal$$noop);
-      lib$es6$promise$$internal$$resolve(promise, object);
-      return promise;
-    }
-    var lib$es6$promise$promise$resolve$$default = lib$es6$promise$promise$resolve$$resolve;
-    var lib$es6$promise$$internal$$PROMISE_ID = Math.random().toString(36).substring(16);
-
-    function lib$es6$promise$$internal$$noop() {}
-
-    var lib$es6$promise$$internal$$PENDING   = void 0;
-    var lib$es6$promise$$internal$$FULFILLED = 1;
-    var lib$es6$promise$$internal$$REJECTED  = 2;
-
-    var lib$es6$promise$$internal$$GET_THEN_ERROR = new lib$es6$promise$$internal$$ErrorObject();
-
-    function lib$es6$promise$$internal$$selfFulfillment() {
-      return new TypeError("You cannot resolve a promise with itself");
-    }
-
-    function lib$es6$promise$$internal$$cannotReturnOwn() {
-      return new TypeError('A promises callback cannot return that same promise.');
-    }
-
-    function lib$es6$promise$$internal$$getThen(promise) {
-      try {
-        return promise.then;
-      } catch(error) {
-        lib$es6$promise$$internal$$GET_THEN_ERROR.error = error;
-        return lib$es6$promise$$internal$$GET_THEN_ERROR;
-      }
-    }
-
-    function lib$es6$promise$$internal$$tryThen(then, value, fulfillmentHandler, rejectionHandler) {
-      try {
-        then.call(value, fulfillmentHandler, rejectionHandler);
-      } catch(e) {
-        return e;
-      }
-    }
-
-    function lib$es6$promise$$internal$$handleForeignThenable(promise, thenable, then) {
-       lib$es6$promise$asap$$asap(function(promise) {
-        var sealed = false;
-        var error = lib$es6$promise$$internal$$tryThen(then, thenable, function(value) {
-          if (sealed) { return; }
-          sealed = true;
-          if (thenable !== value) {
-            lib$es6$promise$$internal$$resolve(promise, value);
-          } else {
-            lib$es6$promise$$internal$$fulfill(promise, value);
-          }
-        }, function(reason) {
-          if (sealed) { return; }
-          sealed = true;
-
-          lib$es6$promise$$internal$$reject(promise, reason);
-        }, 'Settle: ' + (promise._label || ' unknown promise'));
-
-        if (!sealed && error) {
-          sealed = true;
-          lib$es6$promise$$internal$$reject(promise, error);
-        }
-      }, promise);
-    }
-
-    function lib$es6$promise$$internal$$handleOwnThenable(promise, thenable) {
-      if (thenable._state === lib$es6$promise$$internal$$FULFILLED) {
-        lib$es6$promise$$internal$$fulfill(promise, thenable._result);
-      } else if (thenable._state === lib$es6$promise$$internal$$REJECTED) {
-        lib$es6$promise$$internal$$reject(promise, thenable._result);
-      } else {
-        lib$es6$promise$$internal$$subscribe(thenable, undefined, function(value) {
-          lib$es6$promise$$internal$$resolve(promise, value);
-        }, function(reason) {
-          lib$es6$promise$$internal$$reject(promise, reason);
-        });
-      }
-    }
-
-    function lib$es6$promise$$internal$$handleMaybeThenable(promise, maybeThenable, then) {
-      if (maybeThenable.constructor === promise.constructor &&
-          then === lib$es6$promise$then$$default &&
-          constructor.resolve === lib$es6$promise$promise$resolve$$default) {
-        lib$es6$promise$$internal$$handleOwnThenable(promise, maybeThenable);
-      } else {
-        if (then === lib$es6$promise$$internal$$GET_THEN_ERROR) {
-          lib$es6$promise$$internal$$reject(promise, lib$es6$promise$$internal$$GET_THEN_ERROR.error);
-        } else if (then === undefined) {
-          lib$es6$promise$$internal$$fulfill(promise, maybeThenable);
-        } else if (lib$es6$promise$utils$$isFunction(then)) {
-          lib$es6$promise$$internal$$handleForeignThenable(promise, maybeThenable, then);
-        } else {
-          lib$es6$promise$$internal$$fulfill(promise, maybeThenable);
-        }
-      }
-    }
-
-    function lib$es6$promise$$internal$$resolve(promise, value) {
-      if (promise === value) {
-        lib$es6$promise$$internal$$reject(promise, lib$es6$promise$$internal$$selfFulfillment());
-      } else if (lib$es6$promise$utils$$objectOrFunction(value)) {
-        lib$es6$promise$$internal$$handleMaybeThenable(promise, value, lib$es6$promise$$internal$$getThen(value));
-      } else {
-        lib$es6$promise$$internal$$fulfill(promise, value);
-      }
-    }
-
-    function lib$es6$promise$$internal$$publishRejection(promise) {
-      if (promise._onerror) {
-        promise._onerror(promise._result);
-      }
-
-      lib$es6$promise$$internal$$publish(promise);
-    }
-
-    function lib$es6$promise$$internal$$fulfill(promise, value) {
-      if (promise._state !== lib$es6$promise$$internal$$PENDING) { return; }
-
-      promise._result = value;
-      promise._state = lib$es6$promise$$internal$$FULFILLED;
-
-      if (promise._subscribers.length !== 0) {
-        lib$es6$promise$asap$$asap(lib$es6$promise$$internal$$publish, promise);
-      }
-    }
-
-    function lib$es6$promise$$internal$$reject(promise, reason) {
-      if (promise._state !== lib$es6$promise$$internal$$PENDING) { return; }
-      promise._state = lib$es6$promise$$internal$$REJECTED;
-      promise._result = reason;
-
-      lib$es6$promise$asap$$asap(lib$es6$promise$$internal$$publishRejection, promise);
-    }
-
-    function lib$es6$promise$$internal$$subscribe(parent, child, onFulfillment, onRejection) {
-      var subscribers = parent._subscribers;
-      var length = subscribers.length;
-
-      parent._onerror = null;
-
-      subscribers[length] = child;
-      subscribers[length + lib$es6$promise$$internal$$FULFILLED] = onFulfillment;
-      subscribers[length + lib$es6$promise$$internal$$REJECTED]  = onRejection;
-
-      if (length === 0 && parent._state) {
-        lib$es6$promise$asap$$asap(lib$es6$promise$$internal$$publish, parent);
-      }
-    }
-
-    function lib$es6$promise$$internal$$publish(promise) {
-      var subscribers = promise._subscribers;
-      var settled = promise._state;
-
-      if (subscribers.length === 0) { return; }
-
-      var child, callback, detail = promise._result;
-
-      for (var i = 0; i < subscribers.length; i += 3) {
-        child = subscribers[i];
-        callback = subscribers[i + settled];
-
-        if (child) {
-          lib$es6$promise$$internal$$invokeCallback(settled, child, callback, detail);
-        } else {
-          callback(detail);
-        }
-      }
-
-      promise._subscribers.length = 0;
-    }
-
-    function lib$es6$promise$$internal$$ErrorObject() {
-      this.error = null;
-    }
-
-    var lib$es6$promise$$internal$$TRY_CATCH_ERROR = new lib$es6$promise$$internal$$ErrorObject();
-
-    function lib$es6$promise$$internal$$tryCatch(callback, detail) {
-      try {
-        return callback(detail);
-      } catch(e) {
-        lib$es6$promise$$internal$$TRY_CATCH_ERROR.error = e;
-        return lib$es6$promise$$internal$$TRY_CATCH_ERROR;
-      }
-    }
-
-    function lib$es6$promise$$internal$$invokeCallback(settled, promise, callback, detail) {
-      var hasCallback = lib$es6$promise$utils$$isFunction(callback),
-          value, error, succeeded, failed;
-
-      if (hasCallback) {
-        value = lib$es6$promise$$internal$$tryCatch(callback, detail);
-
-        if (value === lib$es6$promise$$internal$$TRY_CATCH_ERROR) {
-          failed = true;
-          error = value.error;
-          value = null;
-        } else {
-          succeeded = true;
-        }
-
-        if (promise === value) {
-          lib$es6$promise$$internal$$reject(promise, lib$es6$promise$$internal$$cannotReturnOwn());
-          return;
-        }
-
-      } else {
-        value = detail;
-        succeeded = true;
-      }
-
-      if (promise._state !== lib$es6$promise$$internal$$PENDING) {
-        // noop
-      } else if (hasCallback && succeeded) {
-        lib$es6$promise$$internal$$resolve(promise, value);
-      } else if (failed) {
-        lib$es6$promise$$internal$$reject(promise, error);
-      } else if (settled === lib$es6$promise$$internal$$FULFILLED) {
-        lib$es6$promise$$internal$$fulfill(promise, value);
-      } else if (settled === lib$es6$promise$$internal$$REJECTED) {
-        lib$es6$promise$$internal$$reject(promise, value);
-      }
-    }
-
-    function lib$es6$promise$$internal$$initializePromise(promise, resolver) {
-      try {
-        resolver(function resolvePromise(value){
-          lib$es6$promise$$internal$$resolve(promise, value);
-        }, function rejectPromise(reason) {
-          lib$es6$promise$$internal$$reject(promise, reason);
-        });
-      } catch(e) {
-        lib$es6$promise$$internal$$reject(promise, e);
-      }
-    }
-
-    var lib$es6$promise$$internal$$id = 0;
-    function lib$es6$promise$$internal$$nextId() {
-      return lib$es6$promise$$internal$$id++;
-    }
-
-    function lib$es6$promise$$internal$$makePromise(promise) {
-      promise[lib$es6$promise$$internal$$PROMISE_ID] = lib$es6$promise$$internal$$id++;
-      promise._state = undefined;
-      promise._result = undefined;
-      promise._subscribers = [];
-    }
-
-    function lib$es6$promise$promise$all$$all(entries) {
-      return new lib$es6$promise$enumerator$$default(this, entries).promise;
-    }
-    var lib$es6$promise$promise$all$$default = lib$es6$promise$promise$all$$all;
-    function lib$es6$promise$promise$race$$race(entries) {
-      /*jshint validthis:true */
-      var Constructor = this;
-
-      if (!lib$es6$promise$utils$$isArray(entries)) {
-        return new Constructor(function(resolve, reject) {
-          reject(new TypeError('You must pass an array to race.'));
-        });
-      } else {
-        return new Constructor(function(resolve, reject) {
-          var length = entries.length;
-          for (var i = 0; i < length; i++) {
-            Constructor.resolve(entries[i]).then(resolve, reject);
-          }
-        });
-      }
-    }
-    var lib$es6$promise$promise$race$$default = lib$es6$promise$promise$race$$race;
-    function lib$es6$promise$promise$reject$$reject(reason) {
-      /*jshint validthis:true */
-      var Constructor = this;
-      var promise = new Constructor(lib$es6$promise$$internal$$noop);
-      lib$es6$promise$$internal$$reject(promise, reason);
-      return promise;
-    }
-    var lib$es6$promise$promise$reject$$default = lib$es6$promise$promise$reject$$reject;
-
-
-    function lib$es6$promise$promise$$needsResolver() {
-      throw new TypeError('You must pass a resolver function as the first argument to the promise constructor');
-    }
-
-    function lib$es6$promise$promise$$needsNew() {
-      throw new TypeError("Failed to construct 'Promise': Please use the 'new' operator, this object constructor cannot be called as a function.");
-    }
-
-    var lib$es6$promise$promise$$default = lib$es6$promise$promise$$Promise;
-    /**
-      Promise objects represent the eventual result of an asynchronous operation. The
-      primary way of interacting with a promise is through its `then` method, which
-      registers callbacks to receive either a promise's eventual value or the reason
-      why the promise cannot be fulfilled.
-
-      Terminology
-      -----------
-
-      - `promise` is an object or function with a `then` method whose behavior conforms to this specification.
-      - `thenable` is an object or function that defines a `then` method.
-      - `value` is any legal JavaScript value (including undefined, a thenable, or a promise).
-      - `exception` is a value that is thrown using the throw statement.
-      - `reason` is a value that indicates why a promise was rejected.
-      - `settled` the final resting state of a promise, fulfilled or rejected.
-
-      A promise can be in one of three states: pending, fulfilled, or rejected.
-
-      Promises that are fulfilled have a fulfillment value and are in the fulfilled
-      state.  Promises that are rejected have a rejection reason and are in the
-      rejected state.  A fulfillment value is never a thenable.
-
-      Promises can also be said to *resolve* a value.  If this value is also a
-      promise, then the original promise's settled state will match the value's
-      settled state.  So a promise that *resolves* a promise that rejects will
-      itself reject, and a promise that *resolves* a promise that fulfills will
-      itself fulfill.
-
-
-      Basic Usage:
-      ------------
-
-      ```js
-      var promise = new Promise(function(resolve, reject) {
-        // on success
-        resolve(value);
-
-        // on failure
-        reject(reason);
+function then(onFulfillment, onRejection) {
+  var _arguments = arguments;
+
+  var parent = this;
+
+  var child = new this.constructor(noop);
+
+  if (child[PROMISE_ID] === undefined) {
+    makePromise(child);
+  }
+
+  var _state = parent._state;
+
+  if (_state) {
+    (function () {
+      var callback = _arguments[_state - 1];
+      asap(function () {
+        return invokeCallback(_state, child, callback, parent._result);
       });
-
-      promise.then(function(value) {
-        // on fulfillment
-      }, function(reason) {
-        // on rejection
-      });
-      ```
-
-      Advanced Usage:
-      ---------------
-
-      Promises shine when abstracting away asynchronous interactions such as
-      `XMLHttpRequest`s.
-
-      ```js
-      function getJSON(url) {
-        return new Promise(function(resolve, reject){
-          var xhr = new XMLHttpRequest();
-
-          xhr.open('GET', url);
-          xhr.onreadystatechange = handler;
-          xhr.responseType = 'json';
-          xhr.setRequestHeader('Accept', 'application/json');
-          xhr.send();
-
-          function handler() {
-            if (this.readyState === this.DONE) {
-              if (this.status === 200) {
-                resolve(this.response);
-              } else {
-                reject(new Error('getJSON: `' + url + '` failed with status: [' + this.status + ']'));
-              }
-            }
-          };
-        });
-      }
-
-      getJSON('/posts.json').then(function(json) {
-        // on fulfillment
-      }, function(reason) {
-        // on rejection
-      });
-      ```
-
-      Unlike callbacks, promises are great composable primitives.
-
-      ```js
-      Promise.all([
-        getJSON('/posts'),
-        getJSON('/comments')
-      ]).then(function(values){
-        values[0] // => postsJSON
-        values[1] // => commentsJSON
-
-        return values;
-      });
-      ```
-
-      @class Promise
-      @param {function} resolver
-      Useful for tooling.
-      @constructor
-    */
-    function lib$es6$promise$promise$$Promise(resolver) {
-      this[lib$es6$promise$$internal$$PROMISE_ID] = lib$es6$promise$$internal$$nextId();
-      this._result = this._state = undefined;
-      this._subscribers = [];
-
-      if (lib$es6$promise$$internal$$noop !== resolver) {
-        typeof resolver !== 'function' && lib$es6$promise$promise$$needsResolver();
-        this instanceof lib$es6$promise$promise$$Promise ? lib$es6$promise$$internal$$initializePromise(this, resolver) : lib$es6$promise$promise$$needsNew();
-      }
-    }
-
-    lib$es6$promise$promise$$Promise.all = lib$es6$promise$promise$all$$default;
-    lib$es6$promise$promise$$Promise.race = lib$es6$promise$promise$race$$default;
-    lib$es6$promise$promise$$Promise.resolve = lib$es6$promise$promise$resolve$$default;
-    lib$es6$promise$promise$$Promise.reject = lib$es6$promise$promise$reject$$default;
-    lib$es6$promise$promise$$Promise._setScheduler = lib$es6$promise$asap$$setScheduler;
-    lib$es6$promise$promise$$Promise._setAsap = lib$es6$promise$asap$$setAsap;
-    lib$es6$promise$promise$$Promise._asap = lib$es6$promise$asap$$asap;
-
-    lib$es6$promise$promise$$Promise.prototype = {
-      constructor: lib$es6$promise$promise$$Promise,
-
-    /**
-      The primary way of interacting with a promise is through its `then` method,
-      which registers callbacks to receive either a promise's eventual value or the
-      reason why the promise cannot be fulfilled.
-
-      ```js
-      findUser().then(function(user){
-        // user is available
-      }, function(reason){
-        // user is unavailable, and you are given the reason why
-      });
-      ```
-
-      Chaining
-      --------
-
-      The return value of `then` is itself a promise.  This second, 'downstream'
-      promise is resolved with the return value of the first promise's fulfillment
-      or rejection handler, or rejected if the handler throws an exception.
-
-      ```js
-      findUser().then(function (user) {
-        return user.name;
-      }, function (reason) {
-        return 'default name';
-      }).then(function (userName) {
-        // If `findUser` fulfilled, `userName` will be the user's name, otherwise it
-        // will be `'default name'`
-      });
-
-      findUser().then(function (user) {
-        throw new Error('Found user, but still unhappy');
-      }, function (reason) {
-        throw new Error('`findUser` rejected and we're unhappy');
-      }).then(function (value) {
-        // never reached
-      }, function (reason) {
-        // if `findUser` fulfilled, `reason` will be 'Found user, but still unhappy'.
-        // If `findUser` rejected, `reason` will be '`findUser` rejected and we're unhappy'.
-      });
-      ```
-      If the downstream promise does not specify a rejection handler, rejection reasons will be propagated further downstream.
-
-      ```js
-      findUser().then(function (user) {
-        throw new PedagogicalException('Upstream error');
-      }).then(function (value) {
-        // never reached
-      }).then(function (value) {
-        // never reached
-      }, function (reason) {
-        // The `PedgagocialException` is propagated all the way down to here
-      });
-      ```
-
-      Assimilation
-      ------------
-
-      Sometimes the value you want to propagate to a downstream promise can only be
-      retrieved asynchronously. This can be achieved by returning a promise in the
-      fulfillment or rejection handler. The downstream promise will then be pending
-      until the returned promise is settled. This is called *assimilation*.
-
-      ```js
-      findUser().then(function (user) {
-        return findCommentsByAuthor(user);
-      }).then(function (comments) {
-        // The user's comments are now available
-      });
-      ```
-
-      If the assimliated promise rejects, then the downstream promise will also reject.
-
-      ```js
-      findUser().then(function (user) {
-        return findCommentsByAuthor(user);
-      }).then(function (comments) {
-        // If `findCommentsByAuthor` fulfills, we'll have the value here
-      }, function (reason) {
-        // If `findCommentsByAuthor` rejects, we'll have the reason here
-      });
-      ```
-
-      Simple Example
-      --------------
-
-      Synchronous Example
-
-      ```javascript
-      var result;
-
-      try {
-        result = findResult();
-        // success
-      } catch(reason) {
-        // failure
-      }
-      ```
-
-      Errback Example
-
-      ```js
-      findResult(function(result, err){
-        if (err) {
-          // failure
-        } else {
-          // success
-        }
-      });
-      ```
-
-      Promise Example;
-
-      ```javascript
-      findResult().then(function(result){
-        // success
-      }, function(reason){
-        // failure
-      });
-      ```
-
-      Advanced Example
-      --------------
-
-      Synchronous Example
-
-      ```javascript
-      var author, books;
-
-      try {
-        author = findAuthor();
-        books  = findBooksByAuthor(author);
-        // success
-      } catch(reason) {
-        // failure
-      }
-      ```
-
-      Errback Example
-
-      ```js
-
-      function foundBooks(books) {
-
-      }
-
-      function failure(reason) {
-
-      }
-
-      findAuthor(function(author, err){
-        if (err) {
-          failure(err);
-          // failure
-        } else {
-          try {
-            findBoooksByAuthor(author, function(books, err) {
-              if (err) {
-                failure(err);
-              } else {
-                try {
-                  foundBooks(books);
-                } catch(reason) {
-                  failure(reason);
-                }
-              }
-            });
-          } catch(error) {
-            failure(err);
-          }
-          // success
-        }
-      });
-      ```
-
-      Promise Example;
-
-      ```javascript
-      findAuthor().
-        then(findBooksByAuthor).
-        then(function(books){
-          // found books
-      }).catch(function(reason){
-        // something went wrong
-      });
-      ```
-
-      @method then
-      @param {Function} onFulfilled
-      @param {Function} onRejected
-      Useful for tooling.
-      @return {Promise}
-    */
-      then: lib$es6$promise$then$$default,
-
-    /**
-      `catch` is simply sugar for `then(undefined, onRejection)` which makes it the same
-      as the catch block of a try/catch statement.
-
-      ```js
-      function findAuthor(){
-        throw new Error('couldn't find that author');
-      }
-
-      // synchronous
-      try {
-        findAuthor();
-      } catch(reason) {
-        // something went wrong
-      }
-
-      // async with promises
-      findAuthor().catch(function(reason){
-        // something went wrong
-      });
-      ```
-
-      @method catch
-      @param {Function} onRejection
-      Useful for tooling.
-      @return {Promise}
-    */
-      'catch': function(onRejection) {
-        return this.then(null, onRejection);
-      }
-    };
-    var lib$es6$promise$enumerator$$default = lib$es6$promise$enumerator$$Enumerator;
-    function lib$es6$promise$enumerator$$Enumerator(Constructor, input) {
-      this._instanceConstructor = Constructor;
-      this.promise = new Constructor(lib$es6$promise$$internal$$noop);
-
-      if (!this.promise[lib$es6$promise$$internal$$PROMISE_ID]) {
-        lib$es6$promise$$internal$$makePromise(this.promise);
-      }
-
-      if (lib$es6$promise$utils$$isArray(input)) {
-        this._input     = input;
-        this.length     = input.length;
-        this._remaining = input.length;
-
-        this._result = new Array(this.length);
-
-        if (this.length === 0) {
-          lib$es6$promise$$internal$$fulfill(this.promise, this._result);
-        } else {
-          this.length = this.length || 0;
-          this._enumerate();
-          if (this._remaining === 0) {
-            lib$es6$promise$$internal$$fulfill(this.promise, this._result);
-          }
-        }
-      } else {
-        lib$es6$promise$$internal$$reject(this.promise, lib$es6$promise$enumerator$$validationError());
-      }
-    }
-
-    function lib$es6$promise$enumerator$$validationError() {
-      return new Error('Array Methods must be provided an Array');
-    }
-
-    lib$es6$promise$enumerator$$Enumerator.prototype._enumerate = function() {
-      var length  = this.length;
-      var input   = this._input;
-
-      for (var i = 0; this._state === lib$es6$promise$$internal$$PENDING && i < length; i++) {
-        this._eachEntry(input[i], i);
-      }
-    };
-
-    lib$es6$promise$enumerator$$Enumerator.prototype._eachEntry = function(entry, i) {
-      var c = this._instanceConstructor;
-      var resolve = c.resolve;
-
-      if (resolve === lib$es6$promise$promise$resolve$$default) {
-        var then = lib$es6$promise$$internal$$getThen(entry);
-
-        if (then === lib$es6$promise$then$$default &&
-            entry._state !== lib$es6$promise$$internal$$PENDING) {
-          this._settledAt(entry._state, i, entry._result);
-        } else if (typeof then !== 'function') {
-          this._remaining--;
-          this._result[i] = entry;
-        } else if (c === lib$es6$promise$promise$$default) {
-          var promise = new c(lib$es6$promise$$internal$$noop);
-          lib$es6$promise$$internal$$handleMaybeThenable(promise, entry, then);
-          this._willSettleAt(promise, i);
-        } else {
-          this._willSettleAt(new c(function(resolve) { resolve(entry); }), i);
-        }
-      } else {
-        this._willSettleAt(resolve(entry), i);
-      }
-    };
-
-    lib$es6$promise$enumerator$$Enumerator.prototype._settledAt = function(state, i, value) {
-      var promise = this.promise;
-
-      if (promise._state === lib$es6$promise$$internal$$PENDING) {
-        this._remaining--;
-
-        if (state === lib$es6$promise$$internal$$REJECTED) {
-          lib$es6$promise$$internal$$reject(promise, value);
-        } else {
-          this._result[i] = value;
-        }
-      }
-
-      if (this._remaining === 0) {
-        lib$es6$promise$$internal$$fulfill(promise, this._result);
-      }
-    };
-
-    lib$es6$promise$enumerator$$Enumerator.prototype._willSettleAt = function(promise, i) {
-      var enumerator = this;
-
-      lib$es6$promise$$internal$$subscribe(promise, undefined, function(value) {
-        enumerator._settledAt(lib$es6$promise$$internal$$FULFILLED, i, value);
-      }, function(reason) {
-        enumerator._settledAt(lib$es6$promise$$internal$$REJECTED, i, reason);
-      });
-    };
-    function lib$es6$promise$polyfill$$polyfill() {
-      var local;
-
-      if (typeof global !== 'undefined') {
-          local = global;
-      } else if (typeof self !== 'undefined') {
-          local = self;
-      } else {
-          try {
-              local = Function('return this')();
-          } catch (e) {
-              throw new Error('polyfill failed because global object is unavailable in this environment');
-          }
-      }
-
-      var P = local.Promise;
-
-      if (P && Object.prototype.toString.call(P.resolve()) === '[object Promise]' && !P.cast) {
+    })();
+  } else {
+    subscribe(parent, child, onFulfillment, onRejection);
+  }
+
+  return child;
+}
+
+/**
+  `Promise.resolve` returns a promise that will become resolved with the
+  passed `value`. It is shorthand for the following:
+
+  ```javascript
+  let promise = new Promise(function(resolve, reject){
+    resolve(1);
+  });
+
+  promise.then(function(value){
+    // value === 1
+  });
+  ```
+
+  Instead of writing the above, your code now simply becomes the following:
+
+  ```javascript
+  let promise = Promise.resolve(1);
+
+  promise.then(function(value){
+    // value === 1
+  });
+  ```
+
+  @method resolve
+  @static
+  @param {Any} value value that the returned promise will be resolved with
+  Useful for tooling.
+  @return {Promise} a promise that will become fulfilled with the given
+  `value`
+*/
+function resolve(object) {
+  /*jshint validthis:true */
+  var Constructor = this;
+
+  if (object && typeof object === 'object' && object.constructor === Constructor) {
+    return object;
+  }
+
+  var promise = new Constructor(noop);
+  _resolve(promise, object);
+  return promise;
+}
+
+var PROMISE_ID = Math.random().toString(36).substring(16);
+
+function noop() {}
+
+var PENDING = void 0;
+var FULFILLED = 1;
+var REJECTED = 2;
+
+var GET_THEN_ERROR = new ErrorObject();
+
+function selfFulfillment() {
+  return new TypeError("You cannot resolve a promise with itself");
+}
+
+function cannotReturnOwn() {
+  return new TypeError('A promises callback cannot return that same promise.');
+}
+
+function getThen(promise) {
+  try {
+    return promise.then;
+  } catch (error) {
+    GET_THEN_ERROR.error = error;
+    return GET_THEN_ERROR;
+  }
+}
+
+function tryThen(then, value, fulfillmentHandler, rejectionHandler) {
+  try {
+    then.call(value, fulfillmentHandler, rejectionHandler);
+  } catch (e) {
+    return e;
+  }
+}
+
+function handleForeignThenable(promise, thenable, then) {
+  asap(function (promise) {
+    var sealed = false;
+    var error = tryThen(then, thenable, function (value) {
+      if (sealed) {
         return;
       }
+      sealed = true;
+      if (thenable !== value) {
+        _resolve(promise, value);
+      } else {
+        fulfill(promise, value);
+      }
+    }, function (reason) {
+      if (sealed) {
+        return;
+      }
+      sealed = true;
 
-      local.Promise = lib$es6$promise$promise$$default;
+      _reject(promise, reason);
+    }, 'Settle: ' + (promise._label || ' unknown promise'));
+
+    if (!sealed && error) {
+      sealed = true;
+      _reject(promise, error);
     }
-    var lib$es6$promise$polyfill$$default = lib$es6$promise$polyfill$$polyfill;
+  }, promise);
+}
 
-    var lib$es6$promise$umd$$ES6Promise = {
-      'Promise': lib$es6$promise$promise$$default,
-      'polyfill': lib$es6$promise$polyfill$$default
-    };
+function handleOwnThenable(promise, thenable) {
+  if (thenable._state === FULFILLED) {
+    fulfill(promise, thenable._result);
+  } else if (thenable._state === REJECTED) {
+    _reject(promise, thenable._result);
+  } else {
+    subscribe(thenable, undefined, function (value) {
+      return _resolve(promise, value);
+    }, function (reason) {
+      return _reject(promise, reason);
+    });
+  }
+}
 
-    /* global define:true module:true window: true */
-    if (typeof define === 'function' && define['amd']) {
-      define(function() { return lib$es6$promise$umd$$ES6Promise; });
-    } else if (typeof module !== 'undefined' && module['exports']) {
-      module['exports'] = lib$es6$promise$umd$$ES6Promise;
-    } else if (typeof this !== 'undefined') {
-      this['ES6Promise'] = lib$es6$promise$umd$$ES6Promise;
+function handleMaybeThenable(promise, maybeThenable, then$$) {
+  if (maybeThenable.constructor === promise.constructor && then$$ === then && maybeThenable.constructor.resolve === resolve) {
+    handleOwnThenable(promise, maybeThenable);
+  } else {
+    if (then$$ === GET_THEN_ERROR) {
+      _reject(promise, GET_THEN_ERROR.error);
+    } else if (then$$ === undefined) {
+      fulfill(promise, maybeThenable);
+    } else if (isFunction(then$$)) {
+      handleForeignThenable(promise, maybeThenable, then$$);
+    } else {
+      fulfill(promise, maybeThenable);
+    }
+  }
+}
+
+function _resolve(promise, value) {
+  if (promise === value) {
+    _reject(promise, selfFulfillment());
+  } else if (objectOrFunction(value)) {
+    handleMaybeThenable(promise, value, getThen(value));
+  } else {
+    fulfill(promise, value);
+  }
+}
+
+function publishRejection(promise) {
+  if (promise._onerror) {
+    promise._onerror(promise._result);
+  }
+
+  publish(promise);
+}
+
+function fulfill(promise, value) {
+  if (promise._state !== PENDING) {
+    return;
+  }
+
+  promise._result = value;
+  promise._state = FULFILLED;
+
+  if (promise._subscribers.length !== 0) {
+    asap(publish, promise);
+  }
+}
+
+function _reject(promise, reason) {
+  if (promise._state !== PENDING) {
+    return;
+  }
+  promise._state = REJECTED;
+  promise._result = reason;
+
+  asap(publishRejection, promise);
+}
+
+function subscribe(parent, child, onFulfillment, onRejection) {
+  var _subscribers = parent._subscribers;
+  var length = _subscribers.length;
+
+  parent._onerror = null;
+
+  _subscribers[length] = child;
+  _subscribers[length + FULFILLED] = onFulfillment;
+  _subscribers[length + REJECTED] = onRejection;
+
+  if (length === 0 && parent._state) {
+    asap(publish, parent);
+  }
+}
+
+function publish(promise) {
+  var subscribers = promise._subscribers;
+  var settled = promise._state;
+
+  if (subscribers.length === 0) {
+    return;
+  }
+
+  var child = undefined,
+      callback = undefined,
+      detail = promise._result;
+
+  for (var i = 0; i < subscribers.length; i += 3) {
+    child = subscribers[i];
+    callback = subscribers[i + settled];
+
+    if (child) {
+      invokeCallback(settled, child, callback, detail);
+    } else {
+      callback(detail);
+    }
+  }
+
+  promise._subscribers.length = 0;
+}
+
+function ErrorObject() {
+  this.error = null;
+}
+
+var TRY_CATCH_ERROR = new ErrorObject();
+
+function tryCatch(callback, detail) {
+  try {
+    return callback(detail);
+  } catch (e) {
+    TRY_CATCH_ERROR.error = e;
+    return TRY_CATCH_ERROR;
+  }
+}
+
+function invokeCallback(settled, promise, callback, detail) {
+  var hasCallback = isFunction(callback),
+      value = undefined,
+      error = undefined,
+      succeeded = undefined,
+      failed = undefined;
+
+  if (hasCallback) {
+    value = tryCatch(callback, detail);
+
+    if (value === TRY_CATCH_ERROR) {
+      failed = true;
+      error = value.error;
+      value = null;
+    } else {
+      succeeded = true;
     }
 
-    lib$es6$promise$polyfill$$default();
-}).call(this);
+    if (promise === value) {
+      _reject(promise, cannotReturnOwn());
+      return;
+    }
+  } else {
+    value = detail;
+    succeeded = true;
+  }
 
+  if (promise._state !== PENDING) {
+    // noop
+  } else if (hasCallback && succeeded) {
+      _resolve(promise, value);
+    } else if (failed) {
+      _reject(promise, error);
+    } else if (settled === FULFILLED) {
+      fulfill(promise, value);
+    } else if (settled === REJECTED) {
+      _reject(promise, value);
+    }
+}
+
+function initializePromise(promise, resolver) {
+  try {
+    resolver(function resolvePromise(value) {
+      _resolve(promise, value);
+    }, function rejectPromise(reason) {
+      _reject(promise, reason);
+    });
+  } catch (e) {
+    _reject(promise, e);
+  }
+}
+
+var id = 0;
+function nextId() {
+  return id++;
+}
+
+function makePromise(promise) {
+  promise[PROMISE_ID] = id++;
+  promise._state = undefined;
+  promise._result = undefined;
+  promise._subscribers = [];
+}
+
+function Enumerator(Constructor, input) {
+  this._instanceConstructor = Constructor;
+  this.promise = new Constructor(noop);
+
+  if (!this.promise[PROMISE_ID]) {
+    makePromise(this.promise);
+  }
+
+  if (isArray(input)) {
+    this._input = input;
+    this.length = input.length;
+    this._remaining = input.length;
+
+    this._result = new Array(this.length);
+
+    if (this.length === 0) {
+      fulfill(this.promise, this._result);
+    } else {
+      this.length = this.length || 0;
+      this._enumerate();
+      if (this._remaining === 0) {
+        fulfill(this.promise, this._result);
+      }
+    }
+  } else {
+    _reject(this.promise, validationError());
+  }
+}
+
+function validationError() {
+  return new Error('Array Methods must be provided an Array');
+};
+
+Enumerator.prototype._enumerate = function () {
+  var length = this.length;
+  var _input = this._input;
+
+  for (var i = 0; this._state === PENDING && i < length; i++) {
+    this._eachEntry(_input[i], i);
+  }
+};
+
+Enumerator.prototype._eachEntry = function (entry, i) {
+  var c = this._instanceConstructor;
+  var resolve$$ = c.resolve;
+
+  if (resolve$$ === resolve) {
+    var _then = getThen(entry);
+
+    if (_then === then && entry._state !== PENDING) {
+      this._settledAt(entry._state, i, entry._result);
+    } else if (typeof _then !== 'function') {
+      this._remaining--;
+      this._result[i] = entry;
+    } else if (c === Promise) {
+      var promise = new c(noop);
+      handleMaybeThenable(promise, entry, _then);
+      this._willSettleAt(promise, i);
+    } else {
+      this._willSettleAt(new c(function (resolve$$) {
+        return resolve$$(entry);
+      }), i);
+    }
+  } else {
+    this._willSettleAt(resolve$$(entry), i);
+  }
+};
+
+Enumerator.prototype._settledAt = function (state, i, value) {
+  var promise = this.promise;
+
+  if (promise._state === PENDING) {
+    this._remaining--;
+
+    if (state === REJECTED) {
+      _reject(promise, value);
+    } else {
+      this._result[i] = value;
+    }
+  }
+
+  if (this._remaining === 0) {
+    fulfill(promise, this._result);
+  }
+};
+
+Enumerator.prototype._willSettleAt = function (promise, i) {
+  var enumerator = this;
+
+  subscribe(promise, undefined, function (value) {
+    return enumerator._settledAt(FULFILLED, i, value);
+  }, function (reason) {
+    return enumerator._settledAt(REJECTED, i, reason);
+  });
+};
+
+/**
+  `Promise.all` accepts an array of promises, and returns a new promise which
+  is fulfilled with an array of fulfillment values for the passed promises, or
+  rejected with the reason of the first passed promise to be rejected. It casts all
+  elements of the passed iterable to promises as it runs this algorithm.
+
+  Example:
+
+  ```javascript
+  let promise1 = resolve(1);
+  let promise2 = resolve(2);
+  let promise3 = resolve(3);
+  let promises = [ promise1, promise2, promise3 ];
+
+  Promise.all(promises).then(function(array){
+    // The array here would be [ 1, 2, 3 ];
+  });
+  ```
+
+  If any of the `promises` given to `all` are rejected, the first promise
+  that is rejected will be given as an argument to the returned promises's
+  rejection handler. For example:
+
+  Example:
+
+  ```javascript
+  let promise1 = resolve(1);
+  let promise2 = reject(new Error("2"));
+  let promise3 = reject(new Error("3"));
+  let promises = [ promise1, promise2, promise3 ];
+
+  Promise.all(promises).then(function(array){
+    // Code here never runs because there are rejected promises!
+  }, function(error) {
+    // error.message === "2"
+  });
+  ```
+
+  @method all
+  @static
+  @param {Array} entries array of promises
+  @param {String} label optional string for labeling the promise.
+  Useful for tooling.
+  @return {Promise} promise that is fulfilled when all `promises` have been
+  fulfilled, or rejected if any of them become rejected.
+  @static
+*/
+function all(entries) {
+  return new Enumerator(this, entries).promise;
+}
+
+/**
+  `Promise.race` returns a new promise which is settled in the same way as the
+  first passed promise to settle.
+
+  Example:
+
+  ```javascript
+  let promise1 = new Promise(function(resolve, reject){
+    setTimeout(function(){
+      resolve('promise 1');
+    }, 200);
+  });
+
+  let promise2 = new Promise(function(resolve, reject){
+    setTimeout(function(){
+      resolve('promise 2');
+    }, 100);
+  });
+
+  Promise.race([promise1, promise2]).then(function(result){
+    // result === 'promise 2' because it was resolved before promise1
+    // was resolved.
+  });
+  ```
+
+  `Promise.race` is deterministic in that only the state of the first
+  settled promise matters. For example, even if other promises given to the
+  `promises` array argument are resolved, but the first settled promise has
+  become rejected before the other promises became fulfilled, the returned
+  promise will become rejected:
+
+  ```javascript
+  let promise1 = new Promise(function(resolve, reject){
+    setTimeout(function(){
+      resolve('promise 1');
+    }, 200);
+  });
+
+  let promise2 = new Promise(function(resolve, reject){
+    setTimeout(function(){
+      reject(new Error('promise 2'));
+    }, 100);
+  });
+
+  Promise.race([promise1, promise2]).then(function(result){
+    // Code here never runs
+  }, function(reason){
+    // reason.message === 'promise 2' because promise 2 became rejected before
+    // promise 1 became fulfilled
+  });
+  ```
+
+  An example real-world use case is implementing timeouts:
+
+  ```javascript
+  Promise.race([ajax('foo.json'), timeout(5000)])
+  ```
+
+  @method race
+  @static
+  @param {Array} promises array of promises to observe
+  Useful for tooling.
+  @return {Promise} a promise which settles in the same way as the first passed
+  promise to settle.
+*/
+function race(entries) {
+  /*jshint validthis:true */
+  var Constructor = this;
+
+  if (!isArray(entries)) {
+    return new Constructor(function (_, reject) {
+      return reject(new TypeError('You must pass an array to race.'));
+    });
+  } else {
+    return new Constructor(function (resolve, reject) {
+      var length = entries.length;
+      for (var i = 0; i < length; i++) {
+        Constructor.resolve(entries[i]).then(resolve, reject);
+      }
+    });
+  }
+}
+
+/**
+  `Promise.reject` returns a promise rejected with the passed `reason`.
+  It is shorthand for the following:
+
+  ```javascript
+  let promise = new Promise(function(resolve, reject){
+    reject(new Error('WHOOPS'));
+  });
+
+  promise.then(function(value){
+    // Code here doesn't run because the promise is rejected!
+  }, function(reason){
+    // reason.message === 'WHOOPS'
+  });
+  ```
+
+  Instead of writing the above, your code now simply becomes the following:
+
+  ```javascript
+  let promise = Promise.reject(new Error('WHOOPS'));
+
+  promise.then(function(value){
+    // Code here doesn't run because the promise is rejected!
+  }, function(reason){
+    // reason.message === 'WHOOPS'
+  });
+  ```
+
+  @method reject
+  @static
+  @param {Any} reason value that the returned promise will be rejected with.
+  Useful for tooling.
+  @return {Promise} a promise rejected with the given `reason`.
+*/
+function reject(reason) {
+  /*jshint validthis:true */
+  var Constructor = this;
+  var promise = new Constructor(noop);
+  _reject(promise, reason);
+  return promise;
+}
+
+function needsResolver() {
+  throw new TypeError('You must pass a resolver function as the first argument to the promise constructor');
+}
+
+function needsNew() {
+  throw new TypeError("Failed to construct 'Promise': Please use the 'new' operator, this object constructor cannot be called as a function.");
+}
+
+/**
+  Promise objects represent the eventual result of an asynchronous operation. The
+  primary way of interacting with a promise is through its `then` method, which
+  registers callbacks to receive either a promise's eventual value or the reason
+  why the promise cannot be fulfilled.
+
+  Terminology
+  -----------
+
+  - `promise` is an object or function with a `then` method whose behavior conforms to this specification.
+  - `thenable` is an object or function that defines a `then` method.
+  - `value` is any legal JavaScript value (including undefined, a thenable, or a promise).
+  - `exception` is a value that is thrown using the throw statement.
+  - `reason` is a value that indicates why a promise was rejected.
+  - `settled` the final resting state of a promise, fulfilled or rejected.
+
+  A promise can be in one of three states: pending, fulfilled, or rejected.
+
+  Promises that are fulfilled have a fulfillment value and are in the fulfilled
+  state.  Promises that are rejected have a rejection reason and are in the
+  rejected state.  A fulfillment value is never a thenable.
+
+  Promises can also be said to *resolve* a value.  If this value is also a
+  promise, then the original promise's settled state will match the value's
+  settled state.  So a promise that *resolves* a promise that rejects will
+  itself reject, and a promise that *resolves* a promise that fulfills will
+  itself fulfill.
+
+
+  Basic Usage:
+  ------------
+
+  ```js
+  let promise = new Promise(function(resolve, reject) {
+    // on success
+    resolve(value);
+
+    // on failure
+    reject(reason);
+  });
+
+  promise.then(function(value) {
+    // on fulfillment
+  }, function(reason) {
+    // on rejection
+  });
+  ```
+
+  Advanced Usage:
+  ---------------
+
+  Promises shine when abstracting away asynchronous interactions such as
+  `XMLHttpRequest`s.
+
+  ```js
+  function getJSON(url) {
+    return new Promise(function(resolve, reject){
+      let xhr = new XMLHttpRequest();
+
+      xhr.open('GET', url);
+      xhr.onreadystatechange = handler;
+      xhr.responseType = 'json';
+      xhr.setRequestHeader('Accept', 'application/json');
+      xhr.send();
+
+      function handler() {
+        if (this.readyState === this.DONE) {
+          if (this.status === 200) {
+            resolve(this.response);
+          } else {
+            reject(new Error('getJSON: `' + url + '` failed with status: [' + this.status + ']'));
+          }
+        }
+      };
+    });
+  }
+
+  getJSON('/posts.json').then(function(json) {
+    // on fulfillment
+  }, function(reason) {
+    // on rejection
+  });
+  ```
+
+  Unlike callbacks, promises are great composable primitives.
+
+  ```js
+  Promise.all([
+    getJSON('/posts'),
+    getJSON('/comments')
+  ]).then(function(values){
+    values[0] // => postsJSON
+    values[1] // => commentsJSON
+
+    return values;
+  });
+  ```
+
+  @class Promise
+  @param {function} resolver
+  Useful for tooling.
+  @constructor
+*/
+function Promise(resolver) {
+  this[PROMISE_ID] = nextId();
+  this._result = this._state = undefined;
+  this._subscribers = [];
+
+  if (noop !== resolver) {
+    typeof resolver !== 'function' && needsResolver();
+    this instanceof Promise ? initializePromise(this, resolver) : needsNew();
+  }
+}
+
+Promise.all = all;
+Promise.race = race;
+Promise.resolve = resolve;
+Promise.reject = reject;
+Promise._setScheduler = setScheduler;
+Promise._setAsap = setAsap;
+Promise._asap = asap;
+
+Promise.prototype = {
+  constructor: Promise,
+
+  /**
+    The primary way of interacting with a promise is through its `then` method,
+    which registers callbacks to receive either a promise's eventual value or the
+    reason why the promise cannot be fulfilled.
+  
+    ```js
+    findUser().then(function(user){
+      // user is available
+    }, function(reason){
+      // user is unavailable, and you are given the reason why
+    });
+    ```
+  
+    Chaining
+    --------
+  
+    The return value of `then` is itself a promise.  This second, 'downstream'
+    promise is resolved with the return value of the first promise's fulfillment
+    or rejection handler, or rejected if the handler throws an exception.
+  
+    ```js
+    findUser().then(function (user) {
+      return user.name;
+    }, function (reason) {
+      return 'default name';
+    }).then(function (userName) {
+      // If `findUser` fulfilled, `userName` will be the user's name, otherwise it
+      // will be `'default name'`
+    });
+  
+    findUser().then(function (user) {
+      throw new Error('Found user, but still unhappy');
+    }, function (reason) {
+      throw new Error('`findUser` rejected and we're unhappy');
+    }).then(function (value) {
+      // never reached
+    }, function (reason) {
+      // if `findUser` fulfilled, `reason` will be 'Found user, but still unhappy'.
+      // If `findUser` rejected, `reason` will be '`findUser` rejected and we're unhappy'.
+    });
+    ```
+    If the downstream promise does not specify a rejection handler, rejection reasons will be propagated further downstream.
+  
+    ```js
+    findUser().then(function (user) {
+      throw new PedagogicalException('Upstream error');
+    }).then(function (value) {
+      // never reached
+    }).then(function (value) {
+      // never reached
+    }, function (reason) {
+      // The `PedgagocialException` is propagated all the way down to here
+    });
+    ```
+  
+    Assimilation
+    ------------
+  
+    Sometimes the value you want to propagate to a downstream promise can only be
+    retrieved asynchronously. This can be achieved by returning a promise in the
+    fulfillment or rejection handler. The downstream promise will then be pending
+    until the returned promise is settled. This is called *assimilation*.
+  
+    ```js
+    findUser().then(function (user) {
+      return findCommentsByAuthor(user);
+    }).then(function (comments) {
+      // The user's comments are now available
+    });
+    ```
+  
+    If the assimliated promise rejects, then the downstream promise will also reject.
+  
+    ```js
+    findUser().then(function (user) {
+      return findCommentsByAuthor(user);
+    }).then(function (comments) {
+      // If `findCommentsByAuthor` fulfills, we'll have the value here
+    }, function (reason) {
+      // If `findCommentsByAuthor` rejects, we'll have the reason here
+    });
+    ```
+  
+    Simple Example
+    --------------
+  
+    Synchronous Example
+  
+    ```javascript
+    let result;
+  
+    try {
+      result = findResult();
+      // success
+    } catch(reason) {
+      // failure
+    }
+    ```
+  
+    Errback Example
+  
+    ```js
+    findResult(function(result, err){
+      if (err) {
+        // failure
+      } else {
+        // success
+      }
+    });
+    ```
+  
+    Promise Example;
+  
+    ```javascript
+    findResult().then(function(result){
+      // success
+    }, function(reason){
+      // failure
+    });
+    ```
+  
+    Advanced Example
+    --------------
+  
+    Synchronous Example
+  
+    ```javascript
+    let author, books;
+  
+    try {
+      author = findAuthor();
+      books  = findBooksByAuthor(author);
+      // success
+    } catch(reason) {
+      // failure
+    }
+    ```
+  
+    Errback Example
+  
+    ```js
+  
+    function foundBooks(books) {
+  
+    }
+  
+    function failure(reason) {
+  
+    }
+  
+    findAuthor(function(author, err){
+      if (err) {
+        failure(err);
+        // failure
+      } else {
+        try {
+          findBoooksByAuthor(author, function(books, err) {
+            if (err) {
+              failure(err);
+            } else {
+              try {
+                foundBooks(books);
+              } catch(reason) {
+                failure(reason);
+              }
+            }
+          });
+        } catch(error) {
+          failure(err);
+        }
+        // success
+      }
+    });
+    ```
+  
+    Promise Example;
+  
+    ```javascript
+    findAuthor().
+      then(findBooksByAuthor).
+      then(function(books){
+        // found books
+    }).catch(function(reason){
+      // something went wrong
+    });
+    ```
+  
+    @method then
+    @param {Function} onFulfilled
+    @param {Function} onRejected
+    Useful for tooling.
+    @return {Promise}
+  */
+  then: then,
+
+  /**
+    `catch` is simply sugar for `then(undefined, onRejection)` which makes it the same
+    as the catch block of a try/catch statement.
+  
+    ```js
+    function findAuthor(){
+      throw new Error('couldn't find that author');
+    }
+  
+    // synchronous
+    try {
+      findAuthor();
+    } catch(reason) {
+      // something went wrong
+    }
+  
+    // async with promises
+    findAuthor().catch(function(reason){
+      // something went wrong
+    });
+    ```
+  
+    @method catch
+    @param {Function} onRejection
+    Useful for tooling.
+    @return {Promise}
+  */
+  'catch': function _catch(onRejection) {
+    return this.then(null, onRejection);
+  }
+};
+
+function polyfill() {
+    var local = undefined;
+
+    if (typeof global !== 'undefined') {
+        local = global;
+    } else if (typeof self !== 'undefined') {
+        local = self;
+    } else {
+        try {
+            local = Function('return this')();
+        } catch (e) {
+            throw new Error('polyfill failed because global object is unavailable in this environment');
+        }
+    }
+
+    var P = local.Promise;
+
+    if (P) {
+        var promiseToString = null;
+        try {
+            promiseToString = Object.prototype.toString.call(P.resolve());
+        } catch (e) {
+            // silently ignored
+        }
+
+        if (promiseToString === '[object Promise]' && !P.cast) {
+            return;
+        }
+    }
+
+    local.Promise = Promise;
+}
+
+polyfill();
+// Strange compat..
+Promise.polyfill = polyfill;
+Promise.Promise = Promise;
+
+return Promise;
+
+})));
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":8}],5:[function(require,module,exports){
+},{"_process":7}],5:[function(require,module,exports){
 'use strict';
 
 module.exports = annotate;
@@ -1187,31 +1381,6 @@ function annotate(fn) {
 }
 
 },{}],6:[function(require,module,exports){
-if (typeof Object.create === 'function') {
-  // implementation from standard node.js 'util' module
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    ctor.prototype = Object.create(superCtor.prototype, {
-      constructor: {
-        value: ctor,
-        enumerable: false,
-        writable: true,
-        configurable: true
-      }
-    });
-  };
-} else {
-  // old school shim for old browsers
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    var TempCtor = function () {}
-    TempCtor.prototype = superCtor.prototype
-    ctor.prototype = new TempCtor()
-    ctor.prototype.constructor = ctor
-  }
-}
-
-},{}],7:[function(require,module,exports){
 'use strict';
 /* eslint-disable no-unused-vars */
 var hasOwnProperty = Object.prototype.hasOwnProperty;
@@ -1296,10 +1465,96 @@ module.exports = shouldUseNative() ? Object.assign : function (target, source) {
 	return to;
 };
 
-},{}],8:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 // shim for using process in browser
-
 var process = module.exports = {};
+
+// cached from whatever global is present so that test runners that stub it
+// don't break things.  But we need to wrap it in a try catch in case it is
+// wrapped in strict mode code which doesn't define any globals.  It's inside a
+// function because try/catches deoptimize in certain engines.
+
+var cachedSetTimeout;
+var cachedClearTimeout;
+
+function defaultSetTimout() {
+    throw new Error('setTimeout has not been defined');
+}
+function defaultClearTimeout () {
+    throw new Error('clearTimeout has not been defined');
+}
+(function () {
+    try {
+        if (typeof setTimeout === 'function') {
+            cachedSetTimeout = setTimeout;
+        } else {
+            cachedSetTimeout = defaultSetTimout;
+        }
+    } catch (e) {
+        cachedSetTimeout = defaultSetTimout;
+    }
+    try {
+        if (typeof clearTimeout === 'function') {
+            cachedClearTimeout = clearTimeout;
+        } else {
+            cachedClearTimeout = defaultClearTimeout;
+        }
+    } catch (e) {
+        cachedClearTimeout = defaultClearTimeout;
+    }
+} ())
+function runTimeout(fun) {
+    if (cachedSetTimeout === setTimeout) {
+        //normal enviroments in sane situations
+        return setTimeout(fun, 0);
+    }
+    // if setTimeout wasn't available but was latter defined
+    if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
+        cachedSetTimeout = setTimeout;
+        return setTimeout(fun, 0);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedSetTimeout(fun, 0);
+    } catch(e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
+            return cachedSetTimeout.call(null, fun, 0);
+        } catch(e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
+            return cachedSetTimeout.call(this, fun, 0);
+        }
+    }
+
+
+}
+function runClearTimeout(marker) {
+    if (cachedClearTimeout === clearTimeout) {
+        //normal enviroments in sane situations
+        return clearTimeout(marker);
+    }
+    // if clearTimeout wasn't available but was latter defined
+    if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
+        cachedClearTimeout = clearTimeout;
+        return clearTimeout(marker);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedClearTimeout(marker);
+    } catch (e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
+            return cachedClearTimeout.call(null, marker);
+        } catch (e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
+            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
+            return cachedClearTimeout.call(this, marker);
+        }
+    }
+
+
+
+}
 var queue = [];
 var draining = false;
 var currentQueue;
@@ -1324,7 +1579,7 @@ function drainQueue() {
     if (draining) {
         return;
     }
-    var timeout = setTimeout(cleanUpNextTick);
+    var timeout = runTimeout(cleanUpNextTick);
     draining = true;
 
     var len = queue.length;
@@ -1341,7 +1596,7 @@ function drainQueue() {
     }
     currentQueue = null;
     draining = false;
-    clearTimeout(timeout);
+    runClearTimeout(timeout);
 }
 
 process.nextTick = function (fun) {
@@ -1353,7 +1608,7 @@ process.nextTick = function (fun) {
     }
     queue.push(new Item(fun, args));
     if (queue.length === 1 && !draining) {
-        setTimeout(drainQueue, 0);
+        runTimeout(drainQueue);
     }
 };
 
@@ -1392,7 +1647,7 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],9:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 
 /**
  * Reduce `arr` with `fn`.
@@ -1417,7 +1672,7 @@ module.exports = function(arr, fn, initial){
   
   return curr;
 };
-},{}],10:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -1967,7 +2222,7 @@ for (var key in requestBase) {
 Request.prototype.abort = function(){
   if (this.aborted) return;
   this.aborted = true;
-  this.xhr.abort();
+  this.xhr && this.xhr.abort();
   this.clearTimeout();
   this.emit('abort');
   return this;
@@ -2496,7 +2751,7 @@ request.put = function(url, data, fn){
   return req;
 };
 
-},{"./is-object":11,"./request":13,"./request-base":12,"emitter":3,"reduce":9}],11:[function(require,module,exports){
+},{"./is-object":10,"./request":12,"./request-base":11,"emitter":3,"reduce":8}],10:[function(require,module,exports){
 /**
  * Check if `obj` is an object.
  *
@@ -2511,7 +2766,7 @@ function isObject(obj) {
 
 module.exports = isObject;
 
-},{}],12:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 /**
  * Module of mixed-in functions shared between node and client code
  */
@@ -2679,7 +2934,7 @@ exports.field = function(name, val) {
   return this;
 };
 
-},{"./is-object":11}],13:[function(require,module,exports){
+},{"./is-object":10}],12:[function(require,module,exports){
 // The node and browser modules expose versions of this with the
 // appropriate constructor function bound as first argument
 /**
@@ -2712,6 +2967,31 @@ function request(RequestConstructor, method, url) {
 }
 
 module.exports = request;
+
+},{}],13:[function(require,module,exports){
+if (typeof Object.create === 'function') {
+  // implementation from standard node.js 'util' module
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    ctor.prototype = Object.create(superCtor.prototype, {
+      constructor: {
+        value: ctor,
+        enumerable: false,
+        writable: true,
+        configurable: true
+      }
+    });
+  };
+} else {
+  // old school shim for old browsers
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    var TempCtor = function () {}
+    TempCtor.prototype = superCtor.prototype
+    ctor.prototype = new TempCtor()
+    ctor.prototype.constructor = ctor
+  }
+}
 
 },{}],14:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
@@ -3310,7 +3590,7 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":14,"_process":8,"inherits":6}],16:[function(require,module,exports){
+},{"./support/isBuffer":14,"_process":7,"inherits":13}],16:[function(require,module,exports){
 'use strict';
 
 var btoa = require('btoa-lite');
@@ -3336,7 +3616,7 @@ var Promise = require('es6-promise').Promise;
  *
  * Users will mainly call the {@link Client#query} method to execute queries.
  *
- * See the [FaunaDB Documentation](https://faunadb.com/documentation) for detailed examples.
+ * See the [FaunaDB Documentation](https://fauna.com/documentation) for detailed examples.
  *
  * All methods return promises containing a JSON object that represents the FaunaDB response.
  * Literal types in the response object will remain as strings, Arrays, and objects.
@@ -3355,14 +3635,14 @@ var Promise = require('es6-promise').Promise;
  *   HTTP scheme to use.
  * @param {?number} options.port
  *   Port of the FaunaDB server.
- * @param {?string} options.secret FaunaDB secret (see [Reference Documentation](https://faunadb.com/documentation/objects#keys))
+ * @param {?string} options.secret FaunaDB secret (see [Reference Documentation](https://fauna.com/documentation/objects#keys))
  * @param {?number} options.timeout Read timeout in seconds.
  * @param {?Client~observerCallback} options.observer
  *   Callback that will be called after every completed request.
  */
 function Client(options) {
   var opts = util.applyDefaults(options, {
-    domain: 'rest.faunadb.com',
+    domain: 'cloud.faunadb.com',
     scheme: 'https',
     port: null,
     secret: null,
@@ -3382,7 +3662,7 @@ function Client(options) {
 
 /**
  * Executes a query via the FaunaDB Query API.
- * See the [docs](https://faunadb.com/documentation/queries),
+ * See the [docs](https://fauna.com/documentation/queries),
  * and the query functions in this documentation.
  * @param expression {Expr}
  *   The query to execute. Created from query functions such as {@link add}.
@@ -3398,7 +3678,7 @@ Client.prototype.query = function (expression) {
  * @param expression {Expr}
  *   The Query expression to paginate over.
  * @param params {Object}
- *   Options to be passed to the paginate function. See [paginate](https://faunadb.com/documentation/queries#read_functions).
+ *   Options to be passed to the paginate function. See [paginate](https://fauna.com/documentation/queries#read_functions).
  * @returns {PageHelper} A PageHelper that wraps the provided expression.
  */
 Client.prototype.paginate = function(expression, params) {
@@ -3409,7 +3689,7 @@ Client.prototype.paginate = function(expression, params) {
 
 /**
  * Issues a HTTP `GET` request via the legacy REST API.
- * See the [docs](https://faunadb.com/documentation/rest).
+ * See the [docs](https://fauna.com/documentation/rest).
  * @deprecated Use the {@link Client#query} API where possible.
  * @param {(string|Ref)} path Path relative the `domain` from the constructor.
  * @param {Object} query URL parameters.
@@ -3422,7 +3702,7 @@ Client.prototype.get = function (path, query) {
 
 /**
  * Issues a HTTP `POST` request via the legacy REST API.
- * See the [docs](https://faunadb.com/documentation/rest).
+ * See the [docs](https://fauna.com/documentation/rest).
  * @deprecated Use the {@link Client#query} API where possible.
  * @param {(string|Ref)} path Path relative to the `domain` from the constructor.
  * @param {Object} data Object to be converted to request JSON.
@@ -3434,7 +3714,7 @@ Client.prototype.post = function (path, data) {
 
 /**
  * Issues a HTTP `PUT` request via the legacy REST API.
- * See the [docs](https://faunadb.com/documentation/rest).
+ * See the [docs](https://fauna.com/documentation/rest).
  * @deprecated Use the {@link Client#query} API where possible.
  * @param {(string|Ref)} path Path relative to the `domain` from the constructor.
  * @param {Object} data Object to be converted to the request JSON.
@@ -3446,7 +3726,7 @@ Client.prototype.put = function (path, data) {
 
 /**
  * Issues a HTTP `PATCH` request via the legacy REST API.
- * See the [docs](https://faunadb.com/documentation/rest).
+ * See the [docs](https://fauna.com/documentation/rest).
  * @deprecated Use the {@link Client#query} API where possible.
  * @param {(string|Ref)} path Path relative to the `domain` from the constructor.
  * @param {Object} data Object to be converted to the request JSON.
@@ -3458,7 +3738,7 @@ Client.prototype.patch = function (path, data) {
 
 /**
  * Issues a HTTP `DELETE` request via the legacy REST API.
- * See the [docs](https://faunadb.com/documentation/rest).
+ * See the [docs](https://fauna.com/documentation/rest).
  * @deprecated Use the {@link Client#query} API where possible.
  * @param {(string|Ref)} path Path relative to the `domain` from the constructor.
  * @return {external:Promise<Object>} FaunaDB response object.
@@ -3469,7 +3749,7 @@ Client.prototype.delete = function (path) {
 
 /**
  * Sends a `ping` request to FaunaDB.
- * See the [docs](https://faunadb.com/documentation/rest#other).
+ * See the [docs](https://fauna.com/documentation/rest#other).
  * @return {external:Promise<string>} Ping response.
  */
 Client.prototype.ping = function (scope, timeout) {
@@ -3553,7 +3833,7 @@ function secretHeader(secret) {
 
 module.exports = Client;
 
-},{"./PageHelper":18,"./RequestResult":19,"./_json":20,"./_util":21,"./errors":23,"./query":24,"./values":25,"btoa-lite":2,"es6-promise":4,"superagent":10}],17:[function(require,module,exports){
+},{"./PageHelper":18,"./RequestResult":19,"./_json":20,"./_util":21,"./errors":23,"./query":24,"./values":25,"btoa-lite":2,"es6-promise":4,"superagent":9}],17:[function(require,module,exports){
 'use strict';
 
 /**
@@ -3808,7 +4088,7 @@ PageHelper.prototype._clone = function() {
 
 module.exports = PageHelper;
 
-},{"./query":24,"es6-promise":4,"object-assign":7}],19:[function(require,module,exports){
+},{"./query":24,"es6-promise":4,"object-assign":6}],19:[function(require,module,exports){
 'use strict';
 
 /**
@@ -4015,7 +4295,6 @@ var json = require('./_json');
  * An example logging string:
  * ```plain
  * Fauna POST /
- * Credentials: ...
  * Request JSON: {
  *   "data": ...
  * }
@@ -4061,7 +4340,6 @@ function showRequestResult(requestResult) {
   var query = requestResult.query,
     method = requestResult.method,
     path = requestResult.path,
-    auth = requestResult.auth,
     requestContent = requestResult.requestContent,
     responseHeaders = requestResult.responseHeaders,
     responseContent = requestResult.responseContent,
@@ -4075,7 +4353,6 @@ function showRequestResult(requestResult) {
   }
 
   log('Fauna ' + method + ' /' + path + _queryString(query) + '\n');
-  log('  Credentials: ' + (auth == null ? 'null' : (auth.user + ':' + auth.pass)) + '\n');
   if (requestContent != null) {
     log('  Request JSON: ' + _showJSON(requestContent) + '\n');
   }
@@ -4129,7 +4406,7 @@ var util = require('util');
  * invalid queries, timeouts.) Server errors will subclass
  * {@link module:errors~FaunaHTTPError}.
  *
- * See the [FaunaDB Error Documentation](https://faunadb.com/documentation/dev#errors)
+ * See the [FaunaDB Error Documentation](https://fauna.com/documentation/dev#errors)
  * for more information on server errors.
  *
  * @param {string} message
@@ -4162,11 +4439,49 @@ util.inherits(FaunaError, Error);
  * @extends module:errors~FaunaError
  * @constructor
  */
-function InvalidValue() {
-  FaunaError.call(this, arguments);
+function InvalidValue(message) {
+  FaunaError.call(this, message);
 }
 
 util.inherits(InvalidValue, FaunaError);
+
+/**
+ * Exception thrown by this client library when an invalid
+ * value is provided as a function argument.
+ *
+ * @extends module:errors~FaunaError
+ * @constructor
+ */
+function InvalidArity(min, max, actual) {
+  FaunaError.call(this, 'Function requires ' + messageForArity(min, max) + ' arguments but ' + actual + ' were given.');
+
+  /**
+   * Minimum number of arguments.
+   * @type {number}
+   */
+  this.min = min;
+
+  /**
+   * Maximum number of arguments.
+   * @type {number}
+   */
+  this.max = max;
+
+  /**
+   * Actual number of arguments called with.
+   * @type {number}
+   */
+  this.actual = actual;
+
+  function messageForArity(min, max) {
+    if (max === null) return 'at least ' + min;
+    if (min === null) return 'up to ' + max;
+    if (min === max) return  min;
+    return 'from ' + min + ' to ' + max;
+  }
+}
+
+util.inherits(InvalidArity, FaunaError);
 
 /**
  * Base exception type for errors returned by the FaunaDB server.
@@ -4320,6 +4635,7 @@ util.inherits(UnavailableError, FaunaHTTPError);
 module.exports = {
   FaunaHTTPError: FaunaHTTPError,
   InvalidValue: InvalidValue,
+  InvalidArity: InvalidArity,
   BadRequest: BadRequest,
   Unauthorized: Unauthorized,
   PermissionDenied: PermissionDenied,
@@ -4341,7 +4657,7 @@ var objectAssign = require('object-assign');
 /**
  * This module contains functions used to construct FaunaDB Queries.
  *
- * See the [FaunaDB Query API Documentation](https://faunadb.com/documentation/queries)
+ * See the [FaunaDB Query API Documentation](https://fauna.com/documentation/queries)
  * for per-function documentation.
  *
  * @module query
@@ -4364,6 +4680,7 @@ var objectAssign = require('object-assign');
  * @return {Expr}
  */
 function Ref() {
+  arity.min(1, arguments);
   var args = argsToArray(arguments);
   return new (values.Ref.bind.apply(values.Ref, [null].concat(args)));
 }
@@ -4371,28 +4688,30 @@ function Ref() {
 // Basic forms
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#basic_forms).
+ * See the [docs](https://fauna.com/documentation/queries#basic_forms).
  *
  * @param {module:query~ExprArg} vars
  * @param {module:query~ExprArg} in_expr
  * @return {Expr}
  * */
 function Let(vars, in_expr) {
+  arity.exact(2, arguments);
   return new Expr({ let: wrapValues(vars), in: wrap(in_expr) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#basic_forms).
+ * See the [docs](https://fauna.com/documentation/queries#basic_forms).
  *
  * @param {module:query~ExprArg} varName
  * @return {Expr}
  * */
 function Var(varName) {
+  arity.exact(1, arguments);
   return new Expr({ var: wrap(varName) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#basic_forms).
+ * See the [docs](https://fauna.com/documentation/queries#basic_forms).
  *
  * @param {module:query~ExprArg} condition
  * @param {module:query~ExprArg} then
@@ -4400,30 +4719,33 @@ function Var(varName) {
  * @return {Expr}
  * */
 function If(condition, then, _else) {
+  arity.exact(3, arguments);
   return new Expr({ if: wrap(condition), then: wrap(then), else: wrap(_else) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#basic_form).
+ * See the [docs](https://fauna.com/documentation/queries#basic_form).
  *
  * @param {...module:query~ExprArg} args
  * @return {Expr}
  * */
 function Do() {
+  arity.min(1, arguments);
   return new Expr({ do: wrap(varargs(arguments)) });
 }
 
-/** See the [docs](https://faunadb.com/documentation/queries#basic_forms).
+/** See the [docs](https://fauna.com/documentation/queries#basic_forms).
  *
  * @param {...module:query~ExprArg} fields
  * @return {Expr}
  * */
 var objectFunction = function(fields) {
+  arity.exact(1, arguments);
   return new Expr({ object: wrapValues(fields) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#basic_forms).
+ * See the [docs](https://fauna.com/documentation/queries#basic_forms).
  *
  * Takes a Javascript function, and will transform it
  * into the appropriate FaunaDB query. For example:
@@ -4440,7 +4762,7 @@ var objectFunction = function(fields) {
  * @return {Expr}
  *
  *//**
- * See the [docs](https://faunadb.com/documentation/queries#basic_forms).
+ * See the [docs](https://fauna.com/documentation/queries#basic_forms).
  *
  * Directly produces a FaunaDB Lambda expression as described in the FaunaDB reference
  * documentation.
@@ -4452,6 +4774,7 @@ var objectFunction = function(fields) {
  * @return {Expr}
  */
 function Lambda() {
+  arity.between(1, 2, arguments);
   switch(arguments.length) {
     case 1:
       var value = arguments[0];
@@ -4467,8 +4790,6 @@ function Lambda() {
       var expr = arguments[1];
 
       return _lambdaExpr(var_name, expr);
-    default:
-      throw new errors.InvalidValue('Lambda function takes either 1 or 2 arguments.');
   }
 }
 
@@ -4483,7 +4804,7 @@ function _lambdaFunc(func) {
     case 1:
       return _lambdaExpr(vars[0], func(Var(vars[0])));
     default:
-      return _lambdaExpr(vars, func.apply(null, vars.map(Var)));
+      return _lambdaExpr(vars, func.apply(null, vars.map(function(name) { return Var(name); })));
   }
 }
 
@@ -4496,99 +4817,107 @@ function _lambdaExpr(var_name, expr) {
 
 // Collection functions
 
-/** See the [docs](https://faunadb.com/documentation/queries#collection_functions).
+/** See the [docs](https://fauna.com/documentation/queries#collection_functions).
  *
  * @param {module:query~ExprArg} collection
  * @param {module:query~ExprArg|function} lambda_expr
  * @return {Expr}
  * */
 function Map(collection, lambda_expr) {
+  arity.exact(2, arguments);
   return new Expr({ map: wrap(lambda_expr), collection: wrap(collection) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#collection_functions).
+ * See the [docs](https://fauna.com/documentation/queries#collection_functions).
  *
  * @param {module:query~ExprArg} collection
  * @param {module:query~ExprArg|function} lambda_expr
  * @return {Expr}
  * */
 function Foreach(collection, lambda_expr) {
+  arity.exact(2, arguments);
   return new Expr({ foreach: wrap(lambda_expr), collection: wrap(collection) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#collection_functions).
+ * See the [docs](https://fauna.com/documentation/queries#collection_functions).
  *
  * @param {module:query~ExprArg} collection
  * @param {module:query~ExprArg|function} lambda_expr
  * @return {Expr}
  * */
 function Filter(collection, lambda_expr) {
+  arity.exact(2, arguments);
   return new Expr({ filter: wrap(lambda_expr), collection: wrap(collection) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#collection_functions).
+ * See the [docs](https://fauna.com/documentation/queries#collection_functions).
  *
  * @param {module:query~ExprArg} number
  * @param {module:query~ExprArg} collection
  * @return {Expr}
  * */
 function Take(number, collection) {
+  arity.exact(2, arguments);
   return new Expr({ take: wrap(number), collection: wrap(collection) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#collection_functions).
+ * See the [docs](https://fauna.com/documentation/queries#collection_functions).
  *
  * @param {module:query~ExprArg} number
  * @param {module:query~ExprArg} collection
  * @return {Expr}
  * */
 function Drop(number, collection) {
+  arity.exact(2, arguments);
   return new Expr({ drop: wrap(number), collection: wrap(collection) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#collection_functions).
+ * See the [docs](https://fauna.com/documentation/queries#collection_functions).
  *
  * @param {module:query~ExprArg} elements
  * @param {module:query~ExprArg} collection
  * @return {Expr}
  */
 function Prepend(elements, collection) {
+  arity.exact(2, arguments);
   return new Expr({ prepend: wrap(elements), collection: wrap(collection) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#collection_functions).
+ * See the [docs](https://fauna.com/documentation/queries#collection_functions).
  *
  * @param {module:query~ExprArg} elements
  * @param {module:query~ExprArg} collection
  * @return {Expr}
  */
 function Append(elements, collection) {
+  arity.exact(2, arguments);
   return new Expr({ append: wrap(elements), collection: wrap(collection) });
 }
 
 // Read functions
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#read_functions).
+ * See the [docs](https://fauna.com/documentation/queries#read_functions).
  *
  * @param {module:query~ExprArg} ref
  * @param {?module:query~ExprArg} ts
  * @return {Expr}
  */
 function Get(ref, ts) {
+  arity.between(1, 2, arguments);
   ts = defaults(ts, null);
 
   return new Expr(params({ get: wrap(ref) }, { ts: wrap(ts) }));
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#read_functions).
+ * See the [docs](https://fauna.com/documentation/queries#read_functions).
  * You may want to utilize {@link Client#paginate} to obtain a {@link PageHelper},
  * rather than using this query function directly.
  *
@@ -4597,84 +4926,77 @@ function Get(ref, ts) {
  * @return {Expr}
  */
 function Paginate(set, opts) {
+  arity.between(1, 2, arguments);
   opts = defaults(opts, {});
 
   return new Expr(objectAssign({ paginate: wrap(set) }, wrapValues(opts)));
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#read_functions).
+ * See the [docs](https://fauna.com/documentation/queries#read_functions).
  *
  * @param {module:query~ExprArg} ref
  * @param {?module:query~ExprArg} ts
  * @return {Expr}
  */
 function Exists(ref, ts) {
+  arity.between(1, 2, arguments);
   ts = defaults(ts, null);
 
   return new Expr(params({ exists: wrap(ref) }, { ts: wrap(ts) }));
 }
 
-/**
- * See the [docs](https://faunadb.com/documentation/queries#read_functions).
- *
- * @param {module:query~ExprArg} set
- * @param {?module:query~ExprArg} events
- * @return {Expr}
- */
-function Count(set, events) {
-  events = defaults(events, null);
-
-  return new Expr(params({ count: wrap(set) }, { events: wrapValues(events) }));
-}
-
 // Write functions
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#write_functions).
+ * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
  * @param {module:query~ExprArg} class_ref
  * @param {?module:query~ExprArg} params
  * @return {Expr}
  */
 function Create(class_ref, params) {
+  arity.between(1, 2, arguments);
   return new Expr({ create: wrap(class_ref), params: wrap(params) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#write_functions).
+ * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
  * @param {module:query~ExprArg} ref
  * @param {module:query~ExprArg} params
  * @return {Expr}
  */
 function Update(ref, params) {
+  arity.exact(2, arguments);
   return new Expr({ update: wrap(ref), params: wrap(params) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#write_functions).
+ * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
  * @param {module:query~ExprArg} ref
  * @param {module:query~ExprArg} params
  * @return {Expr}
  */
 function Replace(ref, params) {
+  arity.exact(2, arguments);
   return new Expr({ replace: wrap(ref), params: wrap(params) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#write_functions).
+ * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
  * @param {module:query~ExprArg} ref
  * @return {Expr}
  */
 function Delete(ref) {
+  arity.exact(1, arguments);
   return new Expr({ delete: wrap(ref) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#write_functions).
+ * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
  * @param {module:query~ExprArg} ref
  * @param {module:query~ExprArg} ts
@@ -4683,11 +5005,12 @@ function Delete(ref) {
  * @return {Expr}
  */
 function Insert(ref, ts, action, params) {
+  arity.exact(4, arguments);
   return new Expr({ insert: wrap(ref), ts: wrap(ts), action: wrap(action), params: wrap(params) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#write_functions).
+ * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
  * @param {module:query~ExprArg} ref
  * @param {module:query~ExprArg} ts
@@ -4695,199 +5018,294 @@ function Insert(ref, ts, action, params) {
  * @return {Expr}
  */
 function Remove(ref, ts, action) {
+  arity.exact(3, arguments);
   return new Expr({ remove: wrap(ref), ts: wrap(ts), action: wrap(action) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#write_functions).
+ *
+ * @param {module:query~ExprArg} params
+ * @return {Expr}
+ */
+function CreateClass(params) {
+  arity.exact(1, arguments);
+  return new Expr({ create_class: wrap(params) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#write_functions).
+ *
+ * @param {module:query~ExprArg} params
+ * @return {Expr}
+ */
+function CreateDatabase(params) {
+  arity.exact(1, arguments);
+  return new Expr({ create_database: wrap(params) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#write_functions).
+ *
+ * @param {module:query~ExprArg} params
+ * @return {Expr}
+ */
+function CreateIndex(params) {
+  arity.exact(1, arguments);
+  return new Expr({ create_index: wrap(params) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#write_functions).
+ *
+ * @param {module:query~ExprArg} params
+ * @return {Expr}
+ */
+function CreateKey(params) {
+  arity.exact(1, arguments);
+  return new Expr({ create_key: wrap(params) });
 }
 
 // Sets
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#sets).
+ * See the [docs](https://fauna.com/documentation/queries#sets).
  *
  * @param {module:query~ExprArg} index
  * @param {...module:query~ExprArg} terms
  * @return {Expr}
  */
 function Match(index) {
+  arity.min(1, arguments);
   var args = argsToArray(arguments);
   args.shift();
   return new Expr({ match: wrap(index), terms: wrap(varargs(args)) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#sets).
+ * See the [docs](https://fauna.com/documentation/queries#sets).
  *
  * @param {...module:query~ExprArg} sets
  * @return {Expr}
  */
 function Union() {
+  arity.min(1, arguments);
   return new Expr({ union: wrap(varargs(arguments)) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#sets).
+ * See the [docs](https://fauna.com/documentation/queries#sets).
  *
  * @param {...module:query~ExprArg} sets
  * @return {Expr}
  * */
 function Intersection() {
+  arity.min(1, arguments);
   return new Expr({ intersection: wrap(varargs(arguments)) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#sets).
+ * See the [docs](https://fauna.com/documentation/queries#sets).
  *
  * @param {...module:query~ExprArg} sets
  * @return {Expr}
  * */
 function Difference() {
+  arity.min(1, arguments);
   return new Expr({ difference: wrap(varargs(arguments)) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#sets).
+ * See the [docs](https://fauna.com/documentation/queries#sets).
  *
  * @param {module:query~ExprArg} set
  * @return {Expr}
  * */
 function Distinct(set) {
+  arity.exact(1, arguments);
   return new Expr({ distinct: wrap(set) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#sets).
+ * See the [docs](https://fauna.com/documentation/queries#sets).
  *
  * @param {module:query~ExprArg} source
  * @param {module:query~ExprArg|function} target
  * @return {Expr}
  */
 function Join(source, target) {
+  arity.exact(2, arguments);
   return new Expr({ join: wrap(source), with: wrap(target) });
 }
 
 // Authentication
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#auth_functions).
+ * See the [docs](https://fauna.com/documentation/queries#auth_functions).
  *
  * @param {module:query~ExprArg} ref
  * @param {module:query~ExprArg} params
  * @return {Expr}
  * */
 function Login(ref, params) {
+  arity.exact(2, arguments);
   return new Expr({ login: wrap(ref), params: wrap(params) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#auth_functions).
+ * See the [docs](https://fauna.com/documentation/queries#auth_functions).
  *
  * @param {module:query~ExprArg} delete_tokens
  * @return {Expr}
  */
 function Logout(delete_tokens) {
+  arity.exact(1, arguments);
   return new Expr({ logout: wrap(delete_tokens) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#auth_functions).
+ * See the [docs](https://fauna.com/documentation/queries#auth_functions).
  *
  * @param {module:query~ExprArg} ref
  * @param {module:query~ExprArg} password
  * @return {Expr}
  */
 function Identify(ref, password) {
+  arity.exact(2, arguments);
   return new Expr({ identify: wrap(ref), password: wrap(password) });
 }
 
 // String functions
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#string_functions).
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
  *
  * @param {module:query~ExprArg} strings
  * @param {?module:query~ExprArg} separator
  * @return {Expr}
  */
 function Concat(strings, separator) {
+  arity.min(1, arguments);
   separator = defaults(separator, null);
   return new Expr(params({ concat: wrap(strings) }, { separator: wrap(separator) }));
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#string_functions).
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
  *
  * @param {module:query~ExprArg} string
  * @return {Expr}
  */
 function Casefold(string) {
+  arity.exact(1, arguments);
   return new Expr({ casefold: wrap(string) });
 }
 
 // Time and date functions
 /**
- * See the [docs](https://faunadb.com/documentation/queries#time_functions).
+ * See the [docs](https://fauna.com/documentation/queries#time_functions).
  *
  * @param {module:query~ExprArg} string
  * @return {Expr}
  */
 function Time(string) {
+  arity.exact(1, arguments);
   return new Expr({ time: wrap(string) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#time_functions).
+ * See the [docs](https://fauna.com/documentation/queries#time_functions).
  *
  * @param {module:query~ExprArg} number
  * @param {module:query~ExprArg} unit
  * @return {Expr}
  */
 function Epoch(number, unit) {
+  arity.exact(2, arguments);
   return new Expr({ epoch: wrap(number), unit: wrap(unit) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#time_functions).
+ * See the [docs](https://fauna.com/documentation/queries#time_functions).
  *
  * @param {module:query~ExprArg} string
  * @return {Expr}
  */
 function Date(string) {
+  arity.exact(1, arguments);
   return new Expr({ date: wrap(string) });
 }
 
 // Miscellaneous functions
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#misc_functions).
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @return {Expr}
  */
-function NextID() {
+function NextId() {
+  arity.exact(0, arguments);
   return new Expr({ next_id: null });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#misc_functions).
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ *
+ * @param {module:query~ExprArg} name
+ * @return {Expr}
+ */
+function Database(name) {
+  arity.exact(1, arguments);
+  return new Expr({ database: wrap(name) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ *
+ * @param {module:query~ExprArg} name
+ * @return {Expr}
+ */
+function Index(name) {
+  arity.exact(1, arguments);
+  return new Expr({ index: wrap(name) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ *
+ * @param {module:query~ExprArg} name
+ * @return {Expr}
+ */
+function Class(name) {
+  arity.exact(1, arguments);
+  return new Expr({ class: wrap(name) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
  * @return {Expr}
  */
 function Equals() {
+  arity.min(1, arguments);
   return new Expr({ equals: varargs(arguments) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#misc_functions).
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {module:query~ExprArg} path
  * @param {module:query~ExprArg} _in
  * @return {Expr}
  */
 function Contains(path, _in) {
+  arity.exact(2, arguments);
   return new Expr({ contains: wrap(path), in: wrap(_in) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#misc_functions).
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {module:query~ExprArg} path
  * @param {module:query~ExprArg} from
@@ -4895,6 +5313,7 @@ function Contains(path, _in) {
  * @return {Expr}
  */
 function Select(path, from, _default) {
+  arity.between(2, 3, arguments);
   var exprObj = { select: wrap(path), from: wrap(from) };
   if (_default !== undefined) {
     exprObj.default = wrapValues(_default);
@@ -4903,126 +5322,152 @@ function Select(path, from, _default) {
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#misc_functions).
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
  * @return {Expr}
  */
 function Add() {
+  arity.min(1, arguments);
   return new Expr({ add: wrap(varargs(arguments)) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#misc_functions).
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
  * @return {Expr}
  */
 function Multiply() {
+  arity.min(1, arguments);
   return new Expr({ multiply: wrap(varargs(arguments)) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#misc_functions).
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
  * @return {Expr}
  */
 function Subtract() {
+  arity.min(1, arguments);
   return new Expr({ subtract: wrap(varargs(arguments)) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#misc_functions).
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
  * @return {Expr}
  */
 function Divide() {
+  arity.min(1, arguments);
   return new Expr({ divide: wrap(varargs(arguments)) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#misc_functions).
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
  * @return {Expr}
  */
 function Modulo() {
+  arity.min(1, arguments);
   return new Expr({ modulo: wrap(varargs(arguments)) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#misc_functions).
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
  * @return {Expr}
  */
 function LT() {
+  arity.min(1, arguments);
   return new Expr({ lt: wrap(varargs(arguments)) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#misc_functions).
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
  * @return {Expr}
  */
 function LTE() {
+  arity.min(1, arguments);
   return new Expr({ lte: wrap(varargs(arguments)) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#misc_functions).
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
  * @return {Expr}
  */
 function GT() {
+  arity.min(1, arguments);
   return new Expr({ gt: wrap(varargs(arguments)) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#misc_functions).
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
  * @return {Expr}
  */
 function GTE() {
+  arity.min(1, arguments);
   return new Expr({ gte: wrap(varargs(arguments)) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#misc_functions).
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
  * @return {Expr}
  */
 function And() {
+  arity.min(1, arguments);
   return new Expr({ and: wrap(varargs(arguments)) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#misc_functions).
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
  * @return {Expr}
  */
 function Or() {
+  arity.min(1, arguments);
   return new Expr({ or: wrap(varargs(arguments)) });
 }
 
 /**
- * See the [docs](https://faunadb.com/documentation/queries#misc_functions).
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {module:query~ExprArg} boolean
  * @return {Expr}
  */
 function Not(boolean) {
+  arity.exact(1, arguments);
   return new Expr({ not: wrap(boolean) });
 }
 
 // Helpers
+
+/**
+ * @ignore
+ */
+function arity(min, max, args) {
+  if ((min !== null && args.length < min) || (max !== null && args.length > max)) {
+    throw new errors.InvalidArity(min, max, args.length);
+  }
+}
+
+arity.exact = function (n, args) { arity(n, n, args); };
+arity.max = function (n, args) { arity(null, n, args); };
+arity.min = function (n, args) { arity(n, null, args); };
+arity.between = function (min, max, args) { arity(min, max, args); };
 
 /** Adds optional parameters to the query.
  *
@@ -5080,6 +5525,7 @@ function defaults(param, def) {
  * @private
  */
 function wrap(obj) {
+  arity.exact(1, arguments);
   if (obj === null) {
     return null;
   } else if (obj instanceof Expr) {
@@ -5137,13 +5583,16 @@ module.exports = {
   Get: Get,
   Paginate: Paginate,
   Exists: Exists,
-  Count: Count,
   Create: Create,
   Update: Update,
   Replace: Replace,
   Delete: Delete,
   Insert: Insert,
   Remove: Remove,
+  CreateClass: CreateClass,
+  CreateDatabase: CreateDatabase,
+  CreateIndex: CreateIndex,
+  CreateKey: CreateKey,
   Match: Match,
   Union: Union,
   Intersection: Intersection,
@@ -5158,7 +5607,10 @@ module.exports = {
   Time: Time,
   Epoch: Epoch,
   Date: Date,
-  NextId: NextID,
+  NextId: NextId,
+  Database: Database,
+  Index: Index,
+  Class: Class,
   Equals: Equals,
   Contains: Contains,
   Select: Select,
@@ -5177,7 +5629,7 @@ module.exports = {
   wrap: wrap
 };
 
-},{"./Expr":17,"./errors":23,"./values":25,"fn-annotate":5,"object-assign":7}],25:[function(require,module,exports){
+},{"./Expr":17,"./errors":23,"./values":25,"fn-annotate":5,"object-assign":6}],25:[function(require,module,exports){
 'use strict';
 
 var errors = require('./errors');
@@ -5192,7 +5644,7 @@ var util = require('util');
  * contains these values. For example, a FaunaDB response containing
  *`{ "@ref": "classes/frogs/123" }` will be returned as `new Ref("classes/frogs/123")`.
  *
- * See the [FaunaDB Query API Documentation](https://faunadb.com/documentation/queries#values)
+ * See the [FaunaDB Query API Documentation](https://fauna.com/documentation/queries#values)
  * for more information.
  *
  * @module values
@@ -5211,7 +5663,7 @@ util.inherits(Value, Expr);
 
 /**
  * FaunaDB ref.
- * See the [docs](https://faunadb.com/documentation/queries#values-special_types).
+ * See the [docs](https://fauna.com/documentation/queries#values-special_types).
  *
  * A simple wrapper around a string which can be extracted using `ref.value`.
  * Queries that require a Ref will not work if you just pass in a string.
@@ -5327,7 +5779,7 @@ SetRef.prototype.toJSON = function() {
   return { '@set': this.value };
 };
 
-/** FaunaDB time. See the [docs](https://faunadb.com/documentation/queries#values-special_types).
+/** FaunaDB time. See the [docs](https://fauna.com/documentation/queries#values-special_types).
  *
  * @param {string|Date} value If a Date, this is converted to a string.
  * @extends module:values~Value
@@ -5361,7 +5813,7 @@ FaunaTime.prototype.toJSON = function() {
   return { '@ts': this.value };
 };
 
-/** FaunaDB date. See the [docs](https://faunadb.com/documentation/queries#values-special_types).
+/** FaunaDB date. See the [docs](https://fauna.com/documentation/queries#values-special_types).
  *
  * @param {string|Date} value
  *   If a Date, this is converted to a string, with time-of-day discarded.

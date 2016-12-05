@@ -2,7 +2,7 @@
   "name": "faunadb",
   "homepage": "https://faunadb.com",
   "authors": [
-    "FaunaDB (business@faunadb.com)"
+    "FaunaDB (business@fauna.com)"
   ],
   "description": "FaunaDB Javascript driver for Node.JS and Browsers",
   "main": "faunadb.js",
