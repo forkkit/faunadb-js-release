@@ -17,12 +17,128 @@ module.exports = {
   query: require('./src/query')
 };
 
-},{"./src/Client":16,"./src/Expr":17,"./src/PageHelper":18,"./src/RequestResult":19,"./src/clientLogger":22,"./src/errors":23,"./src/query":24,"./src/values":25}],2:[function(require,module,exports){
+},{"./src/Client":17,"./src/Expr":18,"./src/PageHelper":19,"./src/RequestResult":20,"./src/clientLogger":23,"./src/errors":24,"./src/query":25,"./src/values":26}],2:[function(require,module,exports){
+'use strict'
+
+exports.byteLength = byteLength
+exports.toByteArray = toByteArray
+exports.fromByteArray = fromByteArray
+
+var lookup = []
+var revLookup = []
+var Arr = typeof Uint8Array !== 'undefined' ? Uint8Array : Array
+
+var code = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+for (var i = 0, len = code.length; i < len; ++i) {
+  lookup[i] = code[i]
+  revLookup[code.charCodeAt(i)] = i
+}
+
+revLookup['-'.charCodeAt(0)] = 62
+revLookup['_'.charCodeAt(0)] = 63
+
+function placeHoldersCount (b64) {
+  var len = b64.length
+  if (len % 4 > 0) {
+    throw new Error('Invalid string. Length must be a multiple of 4')
+  }
+
+  // the number of equal signs (place holders)
+  // if there are two placeholders, than the two characters before it
+  // represent one byte
+  // if there is only one, then the three characters before it represent 2 bytes
+  // this is just a cheap hack to not do indexOf twice
+  return b64[len - 2] === '=' ? 2 : b64[len - 1] === '=' ? 1 : 0
+}
+
+function byteLength (b64) {
+  // base64 is 4/3 + up to two characters of the original data
+  return b64.length * 3 / 4 - placeHoldersCount(b64)
+}
+
+function toByteArray (b64) {
+  var i, j, l, tmp, placeHolders, arr
+  var len = b64.length
+  placeHolders = placeHoldersCount(b64)
+
+  arr = new Arr(len * 3 / 4 - placeHolders)
+
+  // if there are placeholders, only get up to the last complete 4 chars
+  l = placeHolders > 0 ? len - 4 : len
+
+  var L = 0
+
+  for (i = 0, j = 0; i < l; i += 4, j += 3) {
+    tmp = (revLookup[b64.charCodeAt(i)] << 18) | (revLookup[b64.charCodeAt(i + 1)] << 12) | (revLookup[b64.charCodeAt(i + 2)] << 6) | revLookup[b64.charCodeAt(i + 3)]
+    arr[L++] = (tmp >> 16) & 0xFF
+    arr[L++] = (tmp >> 8) & 0xFF
+    arr[L++] = tmp & 0xFF
+  }
+
+  if (placeHolders === 2) {
+    tmp = (revLookup[b64.charCodeAt(i)] << 2) | (revLookup[b64.charCodeAt(i + 1)] >> 4)
+    arr[L++] = tmp & 0xFF
+  } else if (placeHolders === 1) {
+    tmp = (revLookup[b64.charCodeAt(i)] << 10) | (revLookup[b64.charCodeAt(i + 1)] << 4) | (revLookup[b64.charCodeAt(i + 2)] >> 2)
+    arr[L++] = (tmp >> 8) & 0xFF
+    arr[L++] = tmp & 0xFF
+  }
+
+  return arr
+}
+
+function tripletToBase64 (num) {
+  return lookup[num >> 18 & 0x3F] + lookup[num >> 12 & 0x3F] + lookup[num >> 6 & 0x3F] + lookup[num & 0x3F]
+}
+
+function encodeChunk (uint8, start, end) {
+  var tmp
+  var output = []
+  for (var i = start; i < end; i += 3) {
+    tmp = (uint8[i] << 16) + (uint8[i + 1] << 8) + (uint8[i + 2])
+    output.push(tripletToBase64(tmp))
+  }
+  return output.join('')
+}
+
+function fromByteArray (uint8) {
+  var tmp
+  var len = uint8.length
+  var extraBytes = len % 3 // if we have 1 byte left, pad 2 bytes
+  var output = ''
+  var parts = []
+  var maxChunkLength = 16383 // must be multiple of 3
+
+  // go through the array every three bytes, we'll deal with trailing stuff later
+  for (var i = 0, len2 = len - extraBytes; i < len2; i += maxChunkLength) {
+    parts.push(encodeChunk(uint8, i, (i + maxChunkLength) > len2 ? len2 : (i + maxChunkLength)))
+  }
+
+  // pad the end with zeros, but make sure to not forget the extra bytes
+  if (extraBytes === 1) {
+    tmp = uint8[len - 1]
+    output += lookup[tmp >> 2]
+    output += lookup[(tmp << 4) & 0x3F]
+    output += '=='
+  } else if (extraBytes === 2) {
+    tmp = (uint8[len - 2] << 8) + (uint8[len - 1])
+    output += lookup[tmp >> 10]
+    output += lookup[(tmp >> 4) & 0x3F]
+    output += lookup[(tmp << 2) & 0x3F]
+    output += '='
+  }
+
+  parts.push(output)
+
+  return parts.join('')
+}
+
+},{}],3:[function(require,module,exports){
 module.exports = function _btoa(str) {
   return btoa(str)
 }
 
-},{}],3:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 
 /**
  * Expose `Emitter`.
@@ -187,7 +303,7 @@ Emitter.prototype.hasListeners = function(event){
   return !! this.listeners(event).length;
 };
 
-},{}],4:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 (function (process,global){
 /*!
  * @overview es6-promise - a tiny implementation of Promises/A+.
@@ -1344,7 +1460,7 @@ return Promise;
 })));
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":7}],5:[function(require,module,exports){
+},{"_process":8}],6:[function(require,module,exports){
 'use strict';
 
 module.exports = annotate;
@@ -1380,9 +1496,16 @@ function annotate(fn) {
   .filter(Boolean);
 }
 
-},{}],6:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
+/*
+object-assign
+(c) Sindre Sorhus
+@license MIT
+*/
+
 'use strict';
 /* eslint-disable no-unused-vars */
+var getOwnPropertySymbols = Object.getOwnPropertySymbols;
 var hasOwnProperty = Object.prototype.hasOwnProperty;
 var propIsEnumerable = Object.prototype.propertyIsEnumerable;
 
@@ -1403,7 +1526,7 @@ function shouldUseNative() {
 		// Detect buggy property enumeration order in older V8 versions.
 
 		// https://bugs.chromium.org/p/v8/issues/detail?id=4118
-		var test1 = new String('abc');  // eslint-disable-line
+		var test1 = new String('abc');  // eslint-disable-line no-new-wrappers
 		test1[5] = 'de';
 		if (Object.getOwnPropertyNames(test1)[0] === '5') {
 			return false;
@@ -1432,7 +1555,7 @@ function shouldUseNative() {
 		}
 
 		return true;
-	} catch (e) {
+	} catch (err) {
 		// We don't expect any of the above to throw, but better to be safe.
 		return false;
 	}
@@ -1452,8 +1575,8 @@ module.exports = shouldUseNative() ? Object.assign : function (target, source) {
 			}
 		}
 
-		if (Object.getOwnPropertySymbols) {
-			symbols = Object.getOwnPropertySymbols(from);
+		if (getOwnPropertySymbols) {
+			symbols = getOwnPropertySymbols(from);
 			for (var i = 0; i < symbols.length; i++) {
 				if (propIsEnumerable.call(from, symbols[i])) {
 					to[symbols[i]] = from[symbols[i]];
@@ -1465,7 +1588,7 @@ module.exports = shouldUseNative() ? Object.assign : function (target, source) {
 	return to;
 };
 
-},{}],7:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -1647,7 +1770,7 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],8:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 
 /**
  * Reduce `arr` with `fn`.
@@ -1672,7 +1795,7 @@ module.exports = function(arr, fn, initial){
   
   return curr;
 };
-},{}],9:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -2751,7 +2874,7 @@ request.put = function(url, data, fn){
   return req;
 };
 
-},{"./is-object":10,"./request":12,"./request-base":11,"emitter":3,"reduce":8}],10:[function(require,module,exports){
+},{"./is-object":11,"./request":13,"./request-base":12,"emitter":4,"reduce":9}],11:[function(require,module,exports){
 /**
  * Check if `obj` is an object.
  *
@@ -2766,7 +2889,7 @@ function isObject(obj) {
 
 module.exports = isObject;
 
-},{}],11:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 /**
  * Module of mixed-in functions shared between node and client code
  */
@@ -2934,7 +3057,7 @@ exports.field = function(name, val) {
   return this;
 };
 
-},{"./is-object":10}],12:[function(require,module,exports){
+},{"./is-object":11}],13:[function(require,module,exports){
 // The node and browser modules expose versions of this with the
 // appropriate constructor function bound as first argument
 /**
@@ -2968,7 +3091,7 @@ function request(RequestConstructor, method, url) {
 
 module.exports = request;
 
-},{}],13:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -2993,14 +3116,14 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],14:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],15:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -3590,7 +3713,7 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":14,"_process":7,"inherits":13}],16:[function(require,module,exports){
+},{"./support/isBuffer":15,"_process":8,"inherits":14}],17:[function(require,module,exports){
 'use strict';
 
 var btoa = require('btoa-lite');
@@ -3642,7 +3765,7 @@ var Promise = require('es6-promise').Promise;
  */
 function Client(options) {
   var opts = util.applyDefaults(options, {
-    domain: 'cloud.faunadb.com',
+    domain: 'db.fauna.com',
     scheme: 'https',
     port: null,
     secret: null,
@@ -3793,9 +3916,8 @@ Client.prototype._performRequest = function (action, path, data, query) {
     rq.query(query);
   }
 
-  if (data) {
-    rq.send(data);
-  }
+  rq.type('json');
+  rq.send(JSON.stringify(data));
 
   if (this._secret) {
     rq.set('Authorization', secretHeader(this._secret));
@@ -3833,7 +3955,7 @@ function secretHeader(secret) {
 
 module.exports = Client;
 
-},{"./PageHelper":18,"./RequestResult":19,"./_json":20,"./_util":21,"./errors":23,"./query":24,"./values":25,"btoa-lite":2,"es6-promise":4,"superagent":9}],17:[function(require,module,exports){
+},{"./PageHelper":19,"./RequestResult":20,"./_json":21,"./_util":22,"./errors":24,"./query":25,"./values":26,"btoa-lite":3,"es6-promise":5,"superagent":10}],18:[function(require,module,exports){
 'use strict';
 
 /**
@@ -3852,7 +3974,7 @@ Expr.prototype.toJSON = function() {
 };
 
 module.exports = Expr;
-},{}],18:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 'use strict';
 
 var query = require('./query');
@@ -4088,7 +4210,7 @@ PageHelper.prototype._clone = function() {
 
 module.exports = PageHelper;
 
-},{"./query":24,"es6-promise":4,"object-assign":6}],19:[function(require,module,exports){
+},{"./query":25,"es6-promise":5,"object-assign":7}],20:[function(require,module,exports){
 'use strict';
 
 /**
@@ -4180,7 +4302,7 @@ Object.defineProperty(RequestResult.prototype, 'timeTaken', { get: function() {
 
 module.exports = RequestResult;
 
-},{}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 'use strict';
 
 var values = require('./values');
@@ -4212,6 +4334,8 @@ function json_parse(_, val) {
     return new values.FaunaTime(val['@ts']);
   } else if ('@date' in val) {
     return new values.FaunaDate(val['@date']);
+  } else if ('@bytes' in val) {
+    return new values.Bytes(val['@bytes']);
   } else {
     return val;
   }
@@ -4222,7 +4346,7 @@ module.exports = {
   parseJSON: parseJSON
 };
 
-},{"./values":25}],21:[function(require,module,exports){
+},{"./values":26}],22:[function(require,module,exports){
 'use strict';
 
 /**
@@ -4271,7 +4395,7 @@ module.exports = {
   removeUndefinedValues: removeUndefinedValues
 };
 
-},{}],22:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 'use strict';
 
 var json = require('./_json');
@@ -4391,7 +4515,7 @@ module.exports = {
   logger: logger,
   showRequestResult: showRequestResult
 };
-},{"./_json":20}],23:[function(require,module,exports){
+},{"./_json":21}],24:[function(require,module,exports){
 'use strict';
 
 var util = require('util');
@@ -4413,14 +4537,14 @@ var util = require('util');
  * @extends Error
  * @constructor
  */
-function FaunaError(message) {
+function FaunaError(name, message) {
   Error.call(this);
 
   /**
    * Name of this exception.
    * @type {string}
    */
-  this.name = this.constructor.name;
+  this.name = name;
 
   /**
    * Message for this exception.
@@ -4440,7 +4564,7 @@ util.inherits(FaunaError, Error);
  * @constructor
  */
 function InvalidValue(message) {
-  FaunaError.call(this, message);
+  FaunaError.call(this, 'InvalidValue', message);
 }
 
 util.inherits(InvalidValue, FaunaError);
@@ -4453,7 +4577,7 @@ util.inherits(InvalidValue, FaunaError);
  * @constructor
  */
 function InvalidArity(min, max, actual) {
-  FaunaError.call(this, 'Function requires ' + messageForArity(min, max) + ' arguments but ' + actual + ' were given.');
+  FaunaError.call(this, 'InvalidArity', 'Function requires ' + messageForArity(min, max) + ' arguments but ' + actual + ' were given.');
 
   /**
    * Minimum number of arguments.
@@ -4491,11 +4615,11 @@ util.inherits(InvalidArity, FaunaError);
  * @extends module:errors~FaunaError
  * @constructor
  */
-function FaunaHTTPError(requestResult) {
+function FaunaHTTPError(name, requestResult) {
   var response = requestResult.responseContent;
   var errors = response.errors;
   var message = errors.length === 0 ? '(empty "errors")' : errors[0].code;
-  FaunaError.call(this, message);
+  FaunaError.call(this, name, message);
 
   /**
    * A wrapped {@link RequestResult} object, containing the request and response
@@ -4542,7 +4666,7 @@ FaunaHTTPError.raiseForStatusCode = function (requestResult) {
       case 503:
         throw new UnavailableError(requestResult);
       default:
-        throw new FaunaHTTPError(requestResult);
+        throw new FaunaHTTPError('UnknownError', requestResult);
     }
   }
 };
@@ -4555,7 +4679,7 @@ FaunaHTTPError.raiseForStatusCode = function (requestResult) {
  * @constructor
  */
 function BadRequest(requestResult) {
-  FaunaHTTPError.call(this, requestResult);
+  FaunaHTTPError.call(this, 'BadRequest', requestResult);
 }
 
 util.inherits(BadRequest, FaunaHTTPError);
@@ -4567,7 +4691,7 @@ util.inherits(BadRequest, FaunaHTTPError);
  * @constructor
  */
 function Unauthorized(requestResult) {
-  FaunaHTTPError.call(this, requestResult);
+  FaunaHTTPError.call(this, 'Unauthorized', requestResult);
 }
 
 util.inherits(Unauthorized, FaunaHTTPError);
@@ -4579,7 +4703,7 @@ util.inherits(Unauthorized, FaunaHTTPError);
  * @constructor
  */
 function PermissionDenied(requestResult) {
-  FaunaHTTPError.call(this, requestResult);
+  FaunaHTTPError.call(this, 'PermissionDenied', requestResult);
 }
 
 util.inherits(PermissionDenied, FaunaHTTPError);
@@ -4591,7 +4715,7 @@ util.inherits(PermissionDenied, FaunaHTTPError);
  * @constructor
  */
 function NotFound(requestResult) {
-  FaunaHTTPError.call(this, requestResult);
+  FaunaHTTPError.call(this, 'NotFound', requestResult);
 }
 
 util.inherits(NotFound, FaunaHTTPError);
@@ -4603,7 +4727,7 @@ util.inherits(NotFound, FaunaHTTPError);
  * @constructor
  */
 function MethodNotAllowed(requestResult) {
-  FaunaHTTPError.call(this, requestResult);
+  FaunaHTTPError.call(this, 'MethodNotAllowed', requestResult);
 }
 
 util.inherits(MethodNotAllowed, FaunaHTTPError);
@@ -4615,7 +4739,7 @@ util.inherits(MethodNotAllowed, FaunaHTTPError);
  * @constructor
  */
 function InternalError(requestResult) {
-  FaunaHTTPError.call(this, requestResult);
+  FaunaHTTPError.call(this, 'InternalError', requestResult);
 }
 
 util.inherits(InternalError, FaunaHTTPError);
@@ -4627,7 +4751,7 @@ util.inherits(InternalError, FaunaHTTPError);
  * @constructor
  */
 function UnavailableError(requestResult) {
-  FaunaHTTPError.call(this, requestResult);
+  FaunaHTTPError.call(this, 'UnavailableError', requestResult);
 }
 
 util.inherits(UnavailableError, FaunaHTTPError);
@@ -4645,7 +4769,7 @@ module.exports = {
   UnavailableError: UnavailableError
 };
 
-},{"util":15}],24:[function(require,module,exports){
+},{"util":16}],25:[function(require,module,exports){
 'use strict';
 
 var annotate = require('fn-annotate');
@@ -4674,18 +4798,34 @@ var objectAssign = require('object-assign');
 // Type helpers
 
 /**
- * Constructs a Ref value.
+ * If one parameter is provided, constructs a literal Ref value. If two are provided,
+ * constructs a Ref() function that, when evaluated, returns a Ref value.
  *
- * @param {string} ref
+ * @param {string|module:query~ExprArg} ref
+ * @param {?module:query~ExprArg} id
  * @return {Expr}
  */
 function Ref() {
-  arity.min(1, arguments);
-  var args = argsToArray(arguments);
-  return new (values.Ref.bind.apply(values.Ref, [null].concat(args)));
+  arity.between(1, 2, arguments);
+  switch (arguments.length) {
+    case 1: return new values.Ref(arguments[0]);
+    case 2: return new Expr({ ref: wrap(arguments[0]), id: wrap(arguments[1]) });
+  }
 }
 
 // Basic forms
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#basic_forms).
+ *
+ * @param {module:query~ExprArg} timestamp
+ * @param {module:query~ExprArg} expr
+ * @return {Expr}
+ * */
+function At(timestamp, expr) {
+  arity.exact(2, arguments);
+  return new Expr({ at: wrap(timestamp), expr: wrap(expr) });
+}
 
 /**
  * See the [docs](https://fauna.com/documentation/queries#basic_forms).
@@ -4914,6 +5054,17 @@ function Get(ref, ts) {
   ts = defaults(ts, null);
 
   return new Expr(params({ get: wrap(ref) }, { ts: wrap(ts) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#read_functions).
+ *
+ * @param {module:query~ExprArg} secret
+ * @return {Expr}
+ */
+function KeyFromSecret(secret) {
+  arity.exact(1, arguments);
+  return new Expr({ key_from_secret: wrap(secret) });
 }
 
 /**
@@ -5532,10 +5683,12 @@ function wrap(obj) {
     return obj;
   } else if (obj instanceof Function) {
     return Lambda(obj);
-  } else if (obj instanceof Array) {
+  } else if (Array.isArray(obj)) {
     return new Expr(obj.map(function (elem) {
       return wrap(elem);
     }));
+  } else if (obj instanceof Uint8Array || obj instanceof ArrayBuffer) {
+    return new values.Bytes(obj);
   } else if (typeof obj === 'object') {
     return new Expr({ object: wrapValues(obj) });
   } else {
@@ -5567,6 +5720,7 @@ function wrapValues(obj) {
 
 module.exports = {
   Ref: Ref,
+  At: At,
   Let: Let,
   Var: Var,
   If: If,
@@ -5581,6 +5735,7 @@ module.exports = {
   Prepend: Prepend,
   Append: Append,
   Get: Get,
+  KeyFromSecret: KeyFromSecret,
   Paginate: Paginate,
   Exists: Exists,
   Create: Create,
@@ -5629,9 +5784,10 @@ module.exports = {
   wrap: wrap
 };
 
-},{"./Expr":17,"./errors":23,"./values":25,"fn-annotate":5,"object-assign":6}],25:[function(require,module,exports){
+},{"./Expr":18,"./errors":24,"./values":26,"fn-annotate":6,"object-assign":7}],26:[function(require,module,exports){
 'use strict';
 
+var base64 = require('base64-js');
 var errors = require('./errors');
 var Expr = require('./Expr');
 var util = require('util');
@@ -5848,12 +6004,45 @@ FaunaDate.prototype.toJSON = function()  {
   return { '@date': this.value };
 };
 
+/** FaunaDB bytes. See the [docs](https://fauna.com/documentation/queries#values-special_types).
+ *
+ * @param {Uint8Array|ArrayBuffer|string} value
+ *    If ArrayBuffer it's converted to Uint8Array
+ *    If string it must be base64 encoded and it's converted to Uint8Array
+ * @extends module:values~Value
+ * @constructor
+ */
+function Bytes(value) {
+  if (value instanceof ArrayBuffer) {
+    this.value = new Uint8Array(value);
+  } else if (typeof value === 'string') {
+    this.value = base64.toByteArray(value);
+  } else if (value instanceof Uint8Array) {
+    this.value = value;
+  } else {
+    throw new errors.InvalidValue('Bytes type expect argument to be either Uint8Array|ArrayBuffer|string, got: ' + JSON.stringify(value));
+  }
+}
+
+util.inherits(Bytes, Value);
+
+/** @ignore */
+Bytes.prototype.inspect = function() {
+  return 'Bytes("' + base64.fromByteArray(this.value) + '")';
+};
+
+/** @ignore */
+Bytes.prototype.toJSON = function()  {
+  return { '@bytes': base64.fromByteArray(this.value) };
+};
+
 module.exports = {
   Value: Value,
   Ref: Ref,
   SetRef: SetRef,
   FaunaTime: FaunaTime,
-  FaunaDate: FaunaDate
+  FaunaDate: FaunaDate,
+  Bytes: Bytes
 };
 
-},{"./Expr":17,"./errors":23,"util":15}]},{},[1]);
+},{"./Expr":18,"./errors":24,"base64-js":2,"util":16}]},{},[1]);
