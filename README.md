@@ -33,10 +33,10 @@ var q = faunadb.query, client = new faunadb.Client({
  });
 
 client.query(q.Paginate(q.Ref("indexes"))).then(function(result) {
-  result.data.forEach(function(index){
-  var p = document.createElement("p")
-  p.innerText = index.value;
-    document.body.appendChild(p)
+  result.data.forEach(function(index) {
+    var p = document.createElement("p");
+    p.innerText = index.value;
+    document.body.appendChild(p);
   })
 })
 ```
