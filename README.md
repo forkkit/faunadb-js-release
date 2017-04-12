@@ -24,7 +24,7 @@ The minified version is also available:
 
 ### Usage
 
-Here is [a JSFiddle of the same content.](https://jsfiddle.net/9kpwrL0u/)
+Here is [a JSFiddle of the same content.](https://jsfiddle.net/9kpwrL0u/3/)
 Replace `CHANGE-database-secret` with your database secret to run.
 
 ```js
@@ -33,10 +33,10 @@ var q = faunadb.query, client = new faunadb.Client({
  });
 
 client.query(q.Paginate(q.Ref("indexes"))).then(function(result) {
-	result.data.forEach(function(index){
+  result.data.forEach(function(index){
   var p = document.createElement("p")
   p.innerText = index.value;
-  	document.body.appendChild(p)
+    document.body.appendChild(p)
   })
 })
 ```
