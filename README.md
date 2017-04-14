@@ -37,6 +37,6 @@ client.query(q.Paginate(q.Ref("indexes"))).then(function(result) {
     var p = document.createElement("p");
     p.innerText = index.value;
     document.body.appendChild(p);
-  })
-})
+  });
+});
 ```
