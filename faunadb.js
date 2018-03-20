@@ -1,4 +1,4 @@
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.faunadb = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.faunadb = f()}})(function(){var define,module,exports;return (function(){function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s}return e})()({1:[function(require,module,exports){
 /**
  * An ES6 compatible promise. This driver depends on the {@link https://github.com/stefanpenner/es6-promise|es6-promise polyfill}.
  * @external Promise
@@ -17,7 +17,7 @@ module.exports = {
   query: require('./src/query')
 };
 
-},{"./src/Client":17,"./src/Expr":18,"./src/PageHelper":19,"./src/RequestResult":20,"./src/clientLogger":23,"./src/errors":24,"./src/query":25,"./src/values":26}],2:[function(require,module,exports){
+},{"./src/Client":19,"./src/Expr":20,"./src/PageHelper":21,"./src/RequestResult":22,"./src/clientLogger":25,"./src/errors":26,"./src/query":27,"./src/values":28}],2:[function(require,module,exports){
 'use strict'
 
 exports.byteLength = byteLength
@@ -34,6 +34,8 @@ for (var i = 0, len = code.length; i < len; ++i) {
   revLookup[code.charCodeAt(i)] = i
 }
 
+// Support decoding URL-safe base64 strings, as Node.js does.
+// See: https://en.wikipedia.org/wiki/Base64#URL_applications
 revLookup['-'.charCodeAt(0)] = 62
 revLookup['_'.charCodeAt(0)] = 63
 
@@ -95,7 +97,7 @@ function encodeChunk (uint8, start, end) {
   var tmp
   var output = []
   for (var i = start; i < end; i += 3) {
-    tmp = (uint8[i] << 16) + (uint8[i + 1] << 8) + (uint8[i + 2])
+    tmp = ((uint8[i] << 16) & 0xFF0000) + ((uint8[i + 1] << 8) & 0xFF00) + (uint8[i + 2] & 0xFF)
     output.push(tripletToBase64(tmp))
   }
   return output.join('')
@@ -310,37 +312,40 @@ Emitter.prototype.hasListeners = function(event){
  * @copyright Copyright (c) 2014 Yehuda Katz, Tom Dale, Stefan Penner and contributors (Conversion to ES6 API by Jake Archibald)
  * @license   Licensed under MIT license
  *            See https://raw.githubusercontent.com/stefanpenner/es6-promise/master/LICENSE
- * @version   3.3.1
+ * @version   v4.2.4+314e4831
  */
 
 (function (global, factory) {
-    typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
-    typeof define === 'function' && define.amd ? define(factory) :
-    (global.ES6Promise = factory());
+	typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
+	typeof define === 'function' && define.amd ? define(factory) :
+	(global.ES6Promise = factory());
 }(this, (function () { 'use strict';
 
 function objectOrFunction(x) {
-  return typeof x === 'function' || typeof x === 'object' && x !== null;
+  var type = typeof x;
+  return x !== null && (type === 'object' || type === 'function');
 }
 
 function isFunction(x) {
   return typeof x === 'function';
 }
 
-var _isArray = undefined;
-if (!Array.isArray) {
+
+
+var _isArray = void 0;
+if (Array.isArray) {
+  _isArray = Array.isArray;
+} else {
   _isArray = function (x) {
     return Object.prototype.toString.call(x) === '[object Array]';
   };
-} else {
-  _isArray = Array.isArray;
 }
 
 var isArray = _isArray;
 
 var len = 0;
-var vertxNext = undefined;
-var customSchedulerFn = undefined;
+var vertxNext = void 0;
+var customSchedulerFn = void 0;
 
 var asap = function asap(callback, arg) {
   queue[len] = callback;
@@ -369,7 +374,7 @@ function setAsap(asapFn) {
 var browserWindow = typeof window !== 'undefined' ? window : undefined;
 var browserGlobal = browserWindow || {};
 var BrowserMutationObserver = browserGlobal.MutationObserver || browserGlobal.WebKitMutationObserver;
-var isNode = typeof self === 'undefined' && typeof process !== 'undefined' && ({}).toString.call(process) === '[object process]';
+var isNode = typeof self === 'undefined' && typeof process !== 'undefined' && {}.toString.call(process) === '[object process]';
 
 // test for web worker but not in IE10
 var isWorker = typeof Uint8ClampedArray !== 'undefined' && typeof importScripts !== 'undefined' && typeof MessageChannel !== 'undefined';
@@ -385,9 +390,13 @@ function useNextTick() {
 
 // vertx
 function useVertxTimer() {
-  return function () {
-    vertxNext(flush);
-  };
+  if (typeof vertxNext !== 'undefined') {
+    return function () {
+      vertxNext(flush);
+    };
+  }
+
+  return useSetTimeout();
 }
 
 function useMutationObserver() {
@@ -436,8 +445,7 @@ function flush() {
 
 function attemptVertx() {
   try {
-    var r = require;
-    var vertx = r('vertx');
+    var vertx = Function('return this')().require('vertx');
     vertxNext = vertx.runOnLoop || vertx.runOnContext;
     return useVertxTimer();
   } catch (e) {
@@ -445,7 +453,7 @@ function attemptVertx() {
   }
 }
 
-var scheduleFlush = undefined;
+var scheduleFlush = void 0;
 // Decide what async method to use to triggering processing of queued callbacks:
 if (isNode) {
   scheduleFlush = useNextTick();
@@ -460,8 +468,6 @@ if (isNode) {
 }
 
 function then(onFulfillment, onRejection) {
-  var _arguments = arguments;
-
   var parent = this;
 
   var child = new this.constructor(noop);
@@ -472,13 +478,12 @@ function then(onFulfillment, onRejection) {
 
   var _state = parent._state;
 
+
   if (_state) {
-    (function () {
-      var callback = _arguments[_state - 1];
-      asap(function () {
-        return invokeCallback(_state, child, callback, parent._result);
-      });
-    })();
+    var callback = arguments[_state - 1];
+    asap(function () {
+      return invokeCallback(_state, child, callback, parent._result);
+    });
   } else {
     subscribe(parent, child, onFulfillment, onRejection);
   }
@@ -517,7 +522,7 @@ function then(onFulfillment, onRejection) {
   @return {Promise} a promise that will become fulfilled with the given
   `value`
 */
-function resolve(object) {
+function resolve$1(object) {
   /*jshint validthis:true */
   var Constructor = this;
 
@@ -526,11 +531,11 @@ function resolve(object) {
   }
 
   var promise = new Constructor(noop);
-  _resolve(promise, object);
+  resolve(promise, object);
   return promise;
 }
 
-var PROMISE_ID = Math.random().toString(36).substring(16);
+var PROMISE_ID = Math.random().toString(36).substring(2);
 
 function noop() {}
 
@@ -538,7 +543,7 @@ var PENDING = void 0;
 var FULFILLED = 1;
 var REJECTED = 2;
 
-var GET_THEN_ERROR = new ErrorObject();
+var TRY_CATCH_ERROR = { error: null };
 
 function selfFulfillment() {
   return new TypeError("You cannot resolve a promise with itself");
@@ -552,29 +557,29 @@ function getThen(promise) {
   try {
     return promise.then;
   } catch (error) {
-    GET_THEN_ERROR.error = error;
-    return GET_THEN_ERROR;
+    TRY_CATCH_ERROR.error = error;
+    return TRY_CATCH_ERROR;
   }
 }
 
-function tryThen(then, value, fulfillmentHandler, rejectionHandler) {
+function tryThen(then$$1, value, fulfillmentHandler, rejectionHandler) {
   try {
-    then.call(value, fulfillmentHandler, rejectionHandler);
+    then$$1.call(value, fulfillmentHandler, rejectionHandler);
   } catch (e) {
     return e;
   }
 }
 
-function handleForeignThenable(promise, thenable, then) {
+function handleForeignThenable(promise, thenable, then$$1) {
   asap(function (promise) {
     var sealed = false;
-    var error = tryThen(then, thenable, function (value) {
+    var error = tryThen(then$$1, thenable, function (value) {
       if (sealed) {
         return;
       }
       sealed = true;
       if (thenable !== value) {
-        _resolve(promise, value);
+        resolve(promise, value);
       } else {
         fulfill(promise, value);
       }
@@ -584,12 +589,12 @@ function handleForeignThenable(promise, thenable, then) {
       }
       sealed = true;
 
-      _reject(promise, reason);
+      reject(promise, reason);
     }, 'Settle: ' + (promise._label || ' unknown promise'));
 
     if (!sealed && error) {
       sealed = true;
-      _reject(promise, error);
+      reject(promise, error);
     }
   }, promise);
 }
@@ -598,35 +603,36 @@ function handleOwnThenable(promise, thenable) {
   if (thenable._state === FULFILLED) {
     fulfill(promise, thenable._result);
   } else if (thenable._state === REJECTED) {
-    _reject(promise, thenable._result);
+    reject(promise, thenable._result);
   } else {
     subscribe(thenable, undefined, function (value) {
-      return _resolve(promise, value);
+      return resolve(promise, value);
     }, function (reason) {
-      return _reject(promise, reason);
+      return reject(promise, reason);
     });
   }
 }
 
-function handleMaybeThenable(promise, maybeThenable, then$$) {
-  if (maybeThenable.constructor === promise.constructor && then$$ === then && maybeThenable.constructor.resolve === resolve) {
+function handleMaybeThenable(promise, maybeThenable, then$$1) {
+  if (maybeThenable.constructor === promise.constructor && then$$1 === then && maybeThenable.constructor.resolve === resolve$1) {
     handleOwnThenable(promise, maybeThenable);
   } else {
-    if (then$$ === GET_THEN_ERROR) {
-      _reject(promise, GET_THEN_ERROR.error);
-    } else if (then$$ === undefined) {
+    if (then$$1 === TRY_CATCH_ERROR) {
+      reject(promise, TRY_CATCH_ERROR.error);
+      TRY_CATCH_ERROR.error = null;
+    } else if (then$$1 === undefined) {
       fulfill(promise, maybeThenable);
-    } else if (isFunction(then$$)) {
-      handleForeignThenable(promise, maybeThenable, then$$);
+    } else if (isFunction(then$$1)) {
+      handleForeignThenable(promise, maybeThenable, then$$1);
     } else {
       fulfill(promise, maybeThenable);
     }
   }
 }
 
-function _resolve(promise, value) {
+function resolve(promise, value) {
   if (promise === value) {
-    _reject(promise, selfFulfillment());
+    reject(promise, selfFulfillment());
   } else if (objectOrFunction(value)) {
     handleMaybeThenable(promise, value, getThen(value));
   } else {
@@ -655,7 +661,7 @@ function fulfill(promise, value) {
   }
 }
 
-function _reject(promise, reason) {
+function reject(promise, reason) {
   if (promise._state !== PENDING) {
     return;
   }
@@ -668,6 +674,7 @@ function _reject(promise, reason) {
 function subscribe(parent, child, onFulfillment, onRejection) {
   var _subscribers = parent._subscribers;
   var length = _subscribers.length;
+
 
   parent._onerror = null;
 
@@ -688,8 +695,8 @@ function publish(promise) {
     return;
   }
 
-  var child = undefined,
-      callback = undefined,
+  var child = void 0,
+      callback = void 0,
       detail = promise._result;
 
   for (var i = 0; i < subscribers.length; i += 3) {
@@ -706,12 +713,6 @@ function publish(promise) {
   promise._subscribers.length = 0;
 }
 
-function ErrorObject() {
-  this.error = null;
-}
-
-var TRY_CATCH_ERROR = new ErrorObject();
-
 function tryCatch(callback, detail) {
   try {
     return callback(detail);
@@ -723,10 +724,10 @@ function tryCatch(callback, detail) {
 
 function invokeCallback(settled, promise, callback, detail) {
   var hasCallback = isFunction(callback),
-      value = undefined,
-      error = undefined,
-      succeeded = undefined,
-      failed = undefined;
+      value = void 0,
+      error = void 0,
+      succeeded = void 0,
+      failed = void 0;
 
   if (hasCallback) {
     value = tryCatch(callback, detail);
@@ -734,13 +735,13 @@ function invokeCallback(settled, promise, callback, detail) {
     if (value === TRY_CATCH_ERROR) {
       failed = true;
       error = value.error;
-      value = null;
+      value.error = null;
     } else {
       succeeded = true;
     }
 
     if (promise === value) {
-      _reject(promise, cannotReturnOwn());
+      reject(promise, cannotReturnOwn());
       return;
     }
   } else {
@@ -751,25 +752,25 @@ function invokeCallback(settled, promise, callback, detail) {
   if (promise._state !== PENDING) {
     // noop
   } else if (hasCallback && succeeded) {
-      _resolve(promise, value);
-    } else if (failed) {
-      _reject(promise, error);
-    } else if (settled === FULFILLED) {
-      fulfill(promise, value);
-    } else if (settled === REJECTED) {
-      _reject(promise, value);
-    }
+    resolve(promise, value);
+  } else if (failed) {
+    reject(promise, error);
+  } else if (settled === FULFILLED) {
+    fulfill(promise, value);
+  } else if (settled === REJECTED) {
+    reject(promise, value);
+  }
 }
 
 function initializePromise(promise, resolver) {
   try {
     resolver(function resolvePromise(value) {
-      _resolve(promise, value);
+      resolve(promise, value);
     }, function rejectPromise(reason) {
-      _reject(promise, reason);
+      reject(promise, reason);
     });
   } catch (e) {
-    _reject(promise, e);
+    reject(promise, e);
   }
 }
 
@@ -785,101 +786,103 @@ function makePromise(promise) {
   promise._subscribers = [];
 }
 
-function Enumerator(Constructor, input) {
-  this._instanceConstructor = Constructor;
-  this.promise = new Constructor(noop);
-
-  if (!this.promise[PROMISE_ID]) {
-    makePromise(this.promise);
-  }
-
-  if (isArray(input)) {
-    this._input = input;
-    this.length = input.length;
-    this._remaining = input.length;
-
-    this._result = new Array(this.length);
-
-    if (this.length === 0) {
-      fulfill(this.promise, this._result);
-    } else {
-      this.length = this.length || 0;
-      this._enumerate();
-      if (this._remaining === 0) {
-        fulfill(this.promise, this._result);
-      }
-    }
-  } else {
-    _reject(this.promise, validationError());
-  }
-}
-
 function validationError() {
   return new Error('Array Methods must be provided an Array');
-};
+}
 
-Enumerator.prototype._enumerate = function () {
-  var length = this.length;
-  var _input = this._input;
+var Enumerator = function () {
+  function Enumerator(Constructor, input) {
+    this._instanceConstructor = Constructor;
+    this.promise = new Constructor(noop);
 
-  for (var i = 0; this._state === PENDING && i < length; i++) {
-    this._eachEntry(_input[i], i);
+    if (!this.promise[PROMISE_ID]) {
+      makePromise(this.promise);
+    }
+
+    if (isArray(input)) {
+      this.length = input.length;
+      this._remaining = input.length;
+
+      this._result = new Array(this.length);
+
+      if (this.length === 0) {
+        fulfill(this.promise, this._result);
+      } else {
+        this.length = this.length || 0;
+        this._enumerate(input);
+        if (this._remaining === 0) {
+          fulfill(this.promise, this._result);
+        }
+      }
+    } else {
+      reject(this.promise, validationError());
+    }
   }
-};
 
-Enumerator.prototype._eachEntry = function (entry, i) {
-  var c = this._instanceConstructor;
-  var resolve$$ = c.resolve;
+  Enumerator.prototype._enumerate = function _enumerate(input) {
+    for (var i = 0; this._state === PENDING && i < input.length; i++) {
+      this._eachEntry(input[i], i);
+    }
+  };
 
-  if (resolve$$ === resolve) {
-    var _then = getThen(entry);
+  Enumerator.prototype._eachEntry = function _eachEntry(entry, i) {
+    var c = this._instanceConstructor;
+    var resolve$$1 = c.resolve;
 
-    if (_then === then && entry._state !== PENDING) {
-      this._settledAt(entry._state, i, entry._result);
-    } else if (typeof _then !== 'function') {
+
+    if (resolve$$1 === resolve$1) {
+      var _then = getThen(entry);
+
+      if (_then === then && entry._state !== PENDING) {
+        this._settledAt(entry._state, i, entry._result);
+      } else if (typeof _then !== 'function') {
+        this._remaining--;
+        this._result[i] = entry;
+      } else if (c === Promise$1) {
+        var promise = new c(noop);
+        handleMaybeThenable(promise, entry, _then);
+        this._willSettleAt(promise, i);
+      } else {
+        this._willSettleAt(new c(function (resolve$$1) {
+          return resolve$$1(entry);
+        }), i);
+      }
+    } else {
+      this._willSettleAt(resolve$$1(entry), i);
+    }
+  };
+
+  Enumerator.prototype._settledAt = function _settledAt(state, i, value) {
+    var promise = this.promise;
+
+
+    if (promise._state === PENDING) {
       this._remaining--;
-      this._result[i] = entry;
-    } else if (c === Promise) {
-      var promise = new c(noop);
-      handleMaybeThenable(promise, entry, _then);
-      this._willSettleAt(promise, i);
-    } else {
-      this._willSettleAt(new c(function (resolve$$) {
-        return resolve$$(entry);
-      }), i);
+
+      if (state === REJECTED) {
+        reject(promise, value);
+      } else {
+        this._result[i] = value;
+      }
     }
-  } else {
-    this._willSettleAt(resolve$$(entry), i);
-  }
-};
 
-Enumerator.prototype._settledAt = function (state, i, value) {
-  var promise = this.promise;
-
-  if (promise._state === PENDING) {
-    this._remaining--;
-
-    if (state === REJECTED) {
-      _reject(promise, value);
-    } else {
-      this._result[i] = value;
+    if (this._remaining === 0) {
+      fulfill(promise, this._result);
     }
-  }
+  };
 
-  if (this._remaining === 0) {
-    fulfill(promise, this._result);
-  }
-};
+  Enumerator.prototype._willSettleAt = function _willSettleAt(promise, i) {
+    var enumerator = this;
 
-Enumerator.prototype._willSettleAt = function (promise, i) {
-  var enumerator = this;
+    subscribe(promise, undefined, function (value) {
+      return enumerator._settledAt(FULFILLED, i, value);
+    }, function (reason) {
+      return enumerator._settledAt(REJECTED, i, reason);
+    });
+  };
 
-  subscribe(promise, undefined, function (value) {
-    return enumerator._settledAt(FULFILLED, i, value);
-  }, function (reason) {
-    return enumerator._settledAt(REJECTED, i, reason);
-  });
-};
+  return Enumerator;
+}();
 
 /**
   `Promise.all` accepts an array of promises, and returns a new promise which
@@ -1049,11 +1052,11 @@ function race(entries) {
   Useful for tooling.
   @return {Promise} a promise rejected with the given `reason`.
 */
-function reject(reason) {
+function reject$1(reason) {
   /*jshint validthis:true */
   var Constructor = this;
   var promise = new Constructor(noop);
-  _reject(promise, reason);
+  reject(promise, reason);
   return promise;
 }
 
@@ -1164,300 +1167,325 @@ function needsNew() {
   ```
 
   @class Promise
-  @param {function} resolver
+  @param {Function} resolver
   Useful for tooling.
   @constructor
 */
-function Promise(resolver) {
-  this[PROMISE_ID] = nextId();
-  this._result = this._state = undefined;
-  this._subscribers = [];
 
-  if (noop !== resolver) {
-    typeof resolver !== 'function' && needsResolver();
-    this instanceof Promise ? initializePromise(this, resolver) : needsNew();
+var Promise$1 = function () {
+  function Promise(resolver) {
+    this[PROMISE_ID] = nextId();
+    this._result = this._state = undefined;
+    this._subscribers = [];
+
+    if (noop !== resolver) {
+      typeof resolver !== 'function' && needsResolver();
+      this instanceof Promise ? initializePromise(this, resolver) : needsNew();
+    }
   }
-}
-
-Promise.all = all;
-Promise.race = race;
-Promise.resolve = resolve;
-Promise.reject = reject;
-Promise._setScheduler = setScheduler;
-Promise._setAsap = setAsap;
-Promise._asap = asap;
-
-Promise.prototype = {
-  constructor: Promise,
 
   /**
-    The primary way of interacting with a promise is through its `then` method,
-    which registers callbacks to receive either a promise's eventual value or the
-    reason why the promise cannot be fulfilled.
-  
-    ```js
-    findUser().then(function(user){
-      // user is available
-    }, function(reason){
-      // user is unavailable, and you are given the reason why
-    });
-    ```
-  
-    Chaining
-    --------
-  
-    The return value of `then` is itself a promise.  This second, 'downstream'
-    promise is resolved with the return value of the first promise's fulfillment
-    or rejection handler, or rejected if the handler throws an exception.
-  
-    ```js
-    findUser().then(function (user) {
-      return user.name;
-    }, function (reason) {
-      return 'default name';
-    }).then(function (userName) {
-      // If `findUser` fulfilled, `userName` will be the user's name, otherwise it
-      // will be `'default name'`
-    });
-  
-    findUser().then(function (user) {
-      throw new Error('Found user, but still unhappy');
-    }, function (reason) {
-      throw new Error('`findUser` rejected and we're unhappy');
-    }).then(function (value) {
-      // never reached
-    }, function (reason) {
-      // if `findUser` fulfilled, `reason` will be 'Found user, but still unhappy'.
-      // If `findUser` rejected, `reason` will be '`findUser` rejected and we're unhappy'.
-    });
-    ```
-    If the downstream promise does not specify a rejection handler, rejection reasons will be propagated further downstream.
-  
-    ```js
-    findUser().then(function (user) {
-      throw new PedagogicalException('Upstream error');
-    }).then(function (value) {
-      // never reached
-    }).then(function (value) {
-      // never reached
-    }, function (reason) {
-      // The `PedgagocialException` is propagated all the way down to here
-    });
-    ```
-  
-    Assimilation
-    ------------
-  
-    Sometimes the value you want to propagate to a downstream promise can only be
-    retrieved asynchronously. This can be achieved by returning a promise in the
-    fulfillment or rejection handler. The downstream promise will then be pending
-    until the returned promise is settled. This is called *assimilation*.
-  
-    ```js
-    findUser().then(function (user) {
-      return findCommentsByAuthor(user);
-    }).then(function (comments) {
-      // The user's comments are now available
-    });
-    ```
-  
-    If the assimliated promise rejects, then the downstream promise will also reject.
-  
-    ```js
-    findUser().then(function (user) {
-      return findCommentsByAuthor(user);
-    }).then(function (comments) {
-      // If `findCommentsByAuthor` fulfills, we'll have the value here
-    }, function (reason) {
-      // If `findCommentsByAuthor` rejects, we'll have the reason here
-    });
-    ```
-  
-    Simple Example
-    --------------
-  
-    Synchronous Example
-  
-    ```javascript
-    let result;
-  
-    try {
-      result = findResult();
-      // success
-    } catch(reason) {
-      // failure
-    }
-    ```
-  
-    Errback Example
-  
-    ```js
-    findResult(function(result, err){
-      if (err) {
-        // failure
-      } else {
-        // success
-      }
-    });
-    ```
-  
-    Promise Example;
-  
-    ```javascript
-    findResult().then(function(result){
-      // success
-    }, function(reason){
-      // failure
-    });
-    ```
-  
-    Advanced Example
-    --------------
-  
-    Synchronous Example
-  
-    ```javascript
-    let author, books;
-  
-    try {
-      author = findAuthor();
-      books  = findBooksByAuthor(author);
-      // success
-    } catch(reason) {
-      // failure
-    }
-    ```
-  
-    Errback Example
-  
-    ```js
-  
-    function foundBooks(books) {
-  
-    }
-  
-    function failure(reason) {
-  
-    }
-  
-    findAuthor(function(author, err){
-      if (err) {
-        failure(err);
-        // failure
-      } else {
-        try {
-          findBoooksByAuthor(author, function(books, err) {
-            if (err) {
-              failure(err);
-            } else {
-              try {
-                foundBooks(books);
-              } catch(reason) {
-                failure(reason);
-              }
-            }
-          });
-        } catch(error) {
-          failure(err);
-        }
-        // success
-      }
-    });
-    ```
-  
-    Promise Example;
-  
-    ```javascript
-    findAuthor().
-      then(findBooksByAuthor).
-      then(function(books){
-        // found books
-    }).catch(function(reason){
-      // something went wrong
-    });
-    ```
-  
-    @method then
-    @param {Function} onFulfilled
-    @param {Function} onRejected
-    Useful for tooling.
-    @return {Promise}
-  */
-  then: then,
-
-  /**
-    `catch` is simply sugar for `then(undefined, onRejection)` which makes it the same
-    as the catch block of a try/catch statement.
-  
-    ```js
-    function findAuthor(){
-      throw new Error('couldn't find that author');
-    }
-  
-    // synchronous
-    try {
-      findAuthor();
-    } catch(reason) {
-      // something went wrong
-    }
-  
-    // async with promises
-    findAuthor().catch(function(reason){
-      // something went wrong
-    });
-    ```
-  
-    @method catch
-    @param {Function} onRejection
-    Useful for tooling.
-    @return {Promise}
-  */
-  'catch': function _catch(onRejection) {
-    return this.then(null, onRejection);
+  The primary way of interacting with a promise is through its `then` method,
+  which registers callbacks to receive either a promise's eventual value or the
+  reason why the promise cannot be fulfilled.
+   ```js
+  findUser().then(function(user){
+    // user is available
+  }, function(reason){
+    // user is unavailable, and you are given the reason why
+  });
+  ```
+   Chaining
+  --------
+   The return value of `then` is itself a promise.  This second, 'downstream'
+  promise is resolved with the return value of the first promise's fulfillment
+  or rejection handler, or rejected if the handler throws an exception.
+   ```js
+  findUser().then(function (user) {
+    return user.name;
+  }, function (reason) {
+    return 'default name';
+  }).then(function (userName) {
+    // If `findUser` fulfilled, `userName` will be the user's name, otherwise it
+    // will be `'default name'`
+  });
+   findUser().then(function (user) {
+    throw new Error('Found user, but still unhappy');
+  }, function (reason) {
+    throw new Error('`findUser` rejected and we're unhappy');
+  }).then(function (value) {
+    // never reached
+  }, function (reason) {
+    // if `findUser` fulfilled, `reason` will be 'Found user, but still unhappy'.
+    // If `findUser` rejected, `reason` will be '`findUser` rejected and we're unhappy'.
+  });
+  ```
+  If the downstream promise does not specify a rejection handler, rejection reasons will be propagated further downstream.
+   ```js
+  findUser().then(function (user) {
+    throw new PedagogicalException('Upstream error');
+  }).then(function (value) {
+    // never reached
+  }).then(function (value) {
+    // never reached
+  }, function (reason) {
+    // The `PedgagocialException` is propagated all the way down to here
+  });
+  ```
+   Assimilation
+  ------------
+   Sometimes the value you want to propagate to a downstream promise can only be
+  retrieved asynchronously. This can be achieved by returning a promise in the
+  fulfillment or rejection handler. The downstream promise will then be pending
+  until the returned promise is settled. This is called *assimilation*.
+   ```js
+  findUser().then(function (user) {
+    return findCommentsByAuthor(user);
+  }).then(function (comments) {
+    // The user's comments are now available
+  });
+  ```
+   If the assimliated promise rejects, then the downstream promise will also reject.
+   ```js
+  findUser().then(function (user) {
+    return findCommentsByAuthor(user);
+  }).then(function (comments) {
+    // If `findCommentsByAuthor` fulfills, we'll have the value here
+  }, function (reason) {
+    // If `findCommentsByAuthor` rejects, we'll have the reason here
+  });
+  ```
+   Simple Example
+  --------------
+   Synchronous Example
+   ```javascript
+  let result;
+   try {
+    result = findResult();
+    // success
+  } catch(reason) {
+    // failure
   }
-};
-
-function polyfill() {
-    var local = undefined;
-
-    if (typeof global !== 'undefined') {
-        local = global;
-    } else if (typeof self !== 'undefined') {
-        local = self;
+  ```
+   Errback Example
+   ```js
+  findResult(function(result, err){
+    if (err) {
+      // failure
     } else {
-        try {
-            local = Function('return this')();
-        } catch (e) {
-            throw new Error('polyfill failed because global object is unavailable in this environment');
-        }
+      // success
+    }
+  });
+  ```
+   Promise Example;
+   ```javascript
+  findResult().then(function(result){
+    // success
+  }, function(reason){
+    // failure
+  });
+  ```
+   Advanced Example
+  --------------
+   Synchronous Example
+   ```javascript
+  let author, books;
+   try {
+    author = findAuthor();
+    books  = findBooksByAuthor(author);
+    // success
+  } catch(reason) {
+    // failure
+  }
+  ```
+   Errback Example
+   ```js
+   function foundBooks(books) {
+   }
+   function failure(reason) {
+   }
+   findAuthor(function(author, err){
+    if (err) {
+      failure(err);
+      // failure
+    } else {
+      try {
+        findBoooksByAuthor(author, function(books, err) {
+          if (err) {
+            failure(err);
+          } else {
+            try {
+              foundBooks(books);
+            } catch(reason) {
+              failure(reason);
+            }
+          }
+        });
+      } catch(error) {
+        failure(err);
+      }
+      // success
+    }
+  });
+  ```
+   Promise Example;
+   ```javascript
+  findAuthor().
+    then(findBooksByAuthor).
+    then(function(books){
+      // found books
+  }).catch(function(reason){
+    // something went wrong
+  });
+  ```
+   @method then
+  @param {Function} onFulfilled
+  @param {Function} onRejected
+  Useful for tooling.
+  @return {Promise}
+  */
+
+  /**
+  `catch` is simply sugar for `then(undefined, onRejection)` which makes it the same
+  as the catch block of a try/catch statement.
+  ```js
+  function findAuthor(){
+  throw new Error('couldn't find that author');
+  }
+  // synchronous
+  try {
+  findAuthor();
+  } catch(reason) {
+  // something went wrong
+  }
+  // async with promises
+  findAuthor().catch(function(reason){
+  // something went wrong
+  });
+  ```
+  @method catch
+  @param {Function} onRejection
+  Useful for tooling.
+  @return {Promise}
+  */
+
+
+  Promise.prototype.catch = function _catch(onRejection) {
+    return this.then(null, onRejection);
+  };
+
+  /**
+    `finally` will be invoked regardless of the promise's fate just as native
+    try/catch/finally behaves
+  
+    Synchronous example:
+  
+    ```js
+    findAuthor() {
+      if (Math.random() > 0.5) {
+        throw new Error();
+      }
+      return new Author();
+    }
+  
+    try {
+      return findAuthor(); // succeed or fail
+    } catch(error) {
+      return findOtherAuther();
+    } finally {
+      // always runs
+      // doesn't affect the return value
+    }
+    ```
+  
+    Asynchronous example:
+  
+    ```js
+    findAuthor().catch(function(reason){
+      return findOtherAuther();
+    }).finally(function(){
+      // author was either found, or not
+    });
+    ```
+  
+    @method finally
+    @param {Function} callback
+    @return {Promise}
+  */
+
+
+  Promise.prototype.finally = function _finally(callback) {
+    var promise = this;
+    var constructor = promise.constructor;
+
+    return promise.then(function (value) {
+      return constructor.resolve(callback()).then(function () {
+        return value;
+      });
+    }, function (reason) {
+      return constructor.resolve(callback()).then(function () {
+        throw reason;
+      });
+    });
+  };
+
+  return Promise;
+}();
+
+Promise$1.prototype.then = then;
+Promise$1.all = all;
+Promise$1.race = race;
+Promise$1.resolve = resolve$1;
+Promise$1.reject = reject$1;
+Promise$1._setScheduler = setScheduler;
+Promise$1._setAsap = setAsap;
+Promise$1._asap = asap;
+
+/*global self*/
+function polyfill() {
+  var local = void 0;
+
+  if (typeof global !== 'undefined') {
+    local = global;
+  } else if (typeof self !== 'undefined') {
+    local = self;
+  } else {
+    try {
+      local = Function('return this')();
+    } catch (e) {
+      throw new Error('polyfill failed because global object is unavailable in this environment');
+    }
+  }
+
+  var P = local.Promise;
+
+  if (P) {
+    var promiseToString = null;
+    try {
+      promiseToString = Object.prototype.toString.call(P.resolve());
+    } catch (e) {
+      // silently ignored
     }
 
-    var P = local.Promise;
-
-    if (P) {
-        var promiseToString = null;
-        try {
-            promiseToString = Object.prototype.toString.call(P.resolve());
-        } catch (e) {
-            // silently ignored
-        }
-
-        if (promiseToString === '[object Promise]' && !P.cast) {
-            return;
-        }
+    if (promiseToString === '[object Promise]' && !P.cast) {
+      return;
     }
+  }
 
-    local.Promise = Promise;
+  local.Promise = Promise$1;
 }
 
-polyfill();
 // Strange compat..
-Promise.polyfill = polyfill;
-Promise.Promise = Promise;
+Promise$1.polyfill = polyfill;
+Promise$1.Promise = Promise$1;
 
-return Promise;
+return Promise$1;
 
 })));
+
+
+
+
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{"_process":8}],6:[function(require,module,exports){
@@ -1797,40 +1825,28 @@ process.chdir = function (dir) {
 process.umask = function() { return 0; };
 
 },{}],9:[function(require,module,exports){
+function Agent() {
+  this._defaults = [];
+}
 
-/**
- * Reduce `arr` with `fn`.
- *
- * @param {Array} arr
- * @param {Function} fn
- * @param {Mixed} initial
- *
- * TODO: combatible error handling?
- */
-
-module.exports = function(arr, fn, initial){  
-  var idx = 0;
-  var len = arr.length;
-  var curr = arguments.length == 3
-    ? initial
-    : arr[idx++];
-
-  while (idx < len) {
-    curr = fn.call(null, curr, arr[idx], ++idx, arr);
+["use", "on", "once", "set", "query", "type", "accept", "auth", "withCredentials", "sortQuery", "retry", "ok", "redirects",
+ "timeout", "buffer", "serialize", "parse", "ca", "key", "pfx", "cert"].forEach(function(fn) {
+  /** Default setting for all requests from this agent */
+  Agent.prototype[fn] = function(/*varargs*/) {
+    this._defaults.push({fn:fn, arguments:arguments});
+    return this;
   }
-  
-  return curr;
+});
+
+Agent.prototype._setDefaults = function(req) {
+    this._defaults.forEach(function(def) {
+      req[def.fn].apply(req, def.arguments);
+    });
 };
+
+module.exports = Agent;
+
 },{}],10:[function(require,module,exports){
-/**
- * Module dependencies.
- */
-
-var Emitter = require('emitter');
-var reduce = require('reduce');
-var requestBase = require('./request-base');
-var isObject = require('./is-object');
-
 /**
  * Root reference for iframes.
  */
@@ -1841,8 +1857,15 @@ if (typeof window !== 'undefined') { // Browser window
 } else if (typeof self !== 'undefined') { // Web Worker
   root = self;
 } else { // Other environments
+  console.warn("Using browser-only version of superagent in non-browser environment");
   root = this;
 }
+
+var Emitter = require('component-emitter');
+var RequestBase = require('./request-base');
+var isObject = require('./is-object');
+var ResponseBase = require('./response-base');
+var Agent = require('./agent-base');
 
 /**
  * Noop.
@@ -1851,34 +1874,24 @@ if (typeof window !== 'undefined') { // Browser window
 function noop(){};
 
 /**
- * Check if `obj` is a host object,
- * we don't want to serialize these :)
- *
- * TODO: future proof, move to compoent land
- *
- * @param {Object} obj
- * @return {Boolean}
- * @api private
- */
-
-function isHost(obj) {
-  var str = {}.toString.call(obj);
-
-  switch (str) {
-    case '[object File]':
-    case '[object Blob]':
-    case '[object FormData]':
-      return true;
-    default:
-      return false;
-  }
-}
-
-/**
  * Expose `request`.
  */
 
-var request = module.exports = require('./request').bind(null, Request);
+var request = exports = module.exports = function(method, url) {
+  // callback
+  if ('function' == typeof url) {
+    return new exports.Request('GET', method).end(url);
+  }
+
+  // url first
+  if (1 == arguments.length) {
+    return new exports.Request('GET', method);
+  }
+
+  return new exports.Request(method, url);
+}
+
+exports.Request = Request;
 
 /**
  * Determine XHR.
@@ -1895,7 +1908,7 @@ request.getXHR = function () {
     try { return new ActiveXObject('Msxml2.XMLHTTP.3.0'); } catch(e) {}
     try { return new ActiveXObject('Msxml2.XMLHTTP'); } catch(e) {}
   }
-  return false;
+  throw Error("Browser-only version of superagent could not find XHR");
 };
 
 /**
@@ -1922,10 +1935,8 @@ function serialize(obj) {
   if (!isObject(obj)) return obj;
   var pairs = [];
   for (var key in obj) {
-    if (null != obj[key]) {
-      pushEncodedKeyValuePair(pairs, key, obj[key]);
-        }
-      }
+    pushEncodedKeyValuePair(pairs, key, obj[key]);
+  }
   return pairs.join('&');
 }
 
@@ -1939,22 +1950,31 @@ function serialize(obj) {
  */
 
 function pushEncodedKeyValuePair(pairs, key, val) {
-  if (Array.isArray(val)) {
-    return val.forEach(function(v) {
-      pushEncodedKeyValuePair(pairs, key, v);
-    });
+  if (val != null) {
+    if (Array.isArray(val)) {
+      val.forEach(function(v) {
+        pushEncodedKeyValuePair(pairs, key, v);
+      });
+    } else if (isObject(val)) {
+      for(var subkey in val) {
+        pushEncodedKeyValuePair(pairs, key + '[' + subkey + ']', val[subkey]);
+      }
+    } else {
+      pairs.push(encodeURIComponent(key)
+        + '=' + encodeURIComponent(val));
+    }
+  } else if (val === null) {
+    pairs.push(encodeURIComponent(key));
   }
-  pairs.push(encodeURIComponent(key)
-    + '=' + encodeURIComponent(val));
 }
 
 /**
  * Expose serialization method.
  */
 
- request.serializeObject = serialize;
+request.serializeObject = serialize;
 
- /**
+/**
   * Parse the given x-www-form-urlencoded `str`.
   *
   * @param {String} str
@@ -1965,13 +1985,18 @@ function pushEncodedKeyValuePair(pairs, key, val) {
 function parseString(str) {
   var obj = {};
   var pairs = str.split('&');
-  var parts;
   var pair;
+  var pos;
 
   for (var i = 0, len = pairs.length; i < len; ++i) {
     pair = pairs[i];
-    parts = pair.split('=');
-    obj[decodeURIComponent(parts[0])] = decodeURIComponent(parts[1]);
+    pos = pair.indexOf('=');
+    if (pos == -1) {
+      obj[decodeURIComponent(pair)] = '';
+    } else {
+      obj[decodeURIComponent(pair.slice(0, pos))] =
+        decodeURIComponent(pair.slice(pos + 1));
+    }
   }
 
   return obj;
@@ -1993,7 +2018,7 @@ request.parseString = parseString;
 request.types = {
   html: 'text/html',
   json: 'application/json',
-  xml: 'application/xml',
+  xml: 'text/xml',
   urlencoded: 'application/x-www-form-urlencoded',
   'form': 'application/x-www-form-urlencoded',
   'form-data': 'application/x-www-form-urlencoded'
@@ -2008,12 +2033,12 @@ request.types = {
  *
  */
 
- request.serialize = {
-   'application/x-www-form-urlencoded': serialize,
-   'application/json': JSON.stringify
- };
+request.serialize = {
+  'application/x-www-form-urlencoded': serialize,
+  'application/json': JSON.stringify,
+};
 
- /**
+/**
   * Default parsers.
   *
   *     superagent.parse['application/xml'] = function(str){
@@ -2024,7 +2049,7 @@ request.types = {
 
 request.parse = {
   'application/x-www-form-urlencoded': parseString,
-  'application/json': JSON.parse
+  'application/json': JSON.parse,
 };
 
 /**
@@ -2044,11 +2069,12 @@ function parseHeader(str) {
   var field;
   var val;
 
-  lines.pop(); // trailing CRLF
-
   for (var i = 0, len = lines.length; i < len; ++i) {
     line = lines[i];
     index = line.indexOf(':');
+    if (index === -1) { // could be empty line, just skip it
+      continue;
+    }
     field = line.slice(0, index).toLowerCase();
     val = trim(line.slice(index + 1));
     fields[field] = val;
@@ -2066,39 +2092,10 @@ function parseHeader(str) {
  */
 
 function isJSON(mime) {
-  return /[\/+]json\b/.test(mime);
+  // should match /json or +json
+  // but not /json-seq
+  return /[\/+]json($|[^-\w])/.test(mime);
 }
-
-/**
- * Return the mime type for the given `str`.
- *
- * @param {String} str
- * @return {String}
- * @api private
- */
-
-function type(str){
-  return str.split(/ *; */).shift();
-};
-
-/**
- * Return header field parameters.
- *
- * @param {String} str
- * @return {Object}
- * @api private
- */
-
-function params(str){
-  return reduce(str.split(/ *; */), function(obj, str){
-    var parts = str.split(/ *= */)
-      , key = parts.shift()
-      , val = parts.shift();
-
-    if (key && val) obj[key] = val;
-    return obj;
-  }, {});
-};
 
 /**
  * Initialize a new `Response` with the given `xhr`.
@@ -2146,8 +2143,7 @@ function params(str){
  * @api private
  */
 
-function Response(req, options) {
-  options = options || {};
+function Response(req) {
   this.req = req;
   this.xhr = this.req.xhr;
   // responseText is accessible only if responseType is '' or 'text' and on older browsers
@@ -2155,51 +2151,29 @@ function Response(req, options) {
      ? this.xhr.responseText
      : null;
   this.statusText = this.req.xhr.statusText;
-  this.setStatusProperties(this.xhr.status);
+  var status = this.xhr.status;
+  // handle IE9 bug: http://stackoverflow.com/questions/10046972/msie-returns-status-code-of-1223-for-ajax-request
+  if (status === 1223) {
+    status = 204;
+  }
+  this._setStatusProperties(status);
   this.header = this.headers = parseHeader(this.xhr.getAllResponseHeaders());
   // getAllResponseHeaders sometimes falsely returns "" for CORS requests, but
   // getResponseHeader still works. so we get content-type even if getting
   // other headers fails.
   this.header['content-type'] = this.xhr.getResponseHeader('content-type');
-  this.setHeaderProperties(this.header);
-  this.body = this.req.method != 'HEAD'
-    ? this.parseBody(this.text ? this.text : this.xhr.response)
-    : null;
+  this._setHeaderProperties(this.header);
+
+  if (null === this.text && req._responseType) {
+    this.body = this.xhr.response;
+  } else {
+    this.body = this.req.method != 'HEAD'
+      ? this._parseBody(this.text ? this.text : this.xhr.response)
+      : null;
+  }
 }
 
-/**
- * Get case-insensitive `field` value.
- *
- * @param {String} field
- * @return {String}
- * @api public
- */
-
-Response.prototype.get = function(field){
-  return this.header[field.toLowerCase()];
-};
-
-/**
- * Set header related properties:
- *
- *   - `.type` the content type without params
- *
- * A response of "Content-Type: text/plain; charset=utf-8"
- * will provide you with a `.type` of "text/plain".
- *
- * @param {Object} header
- * @api private
- */
-
-Response.prototype.setHeaderProperties = function(header){
-  // content-type
-  var ct = this.header['content-type'] || '';
-  this.type = type(ct);
-
-  // params
-  var obj = params(ct);
-  for (var key in obj) this[key] = obj[key];
-};
+ResponseBase(Response.prototype);
 
 /**
  * Parse the given body `str`.
@@ -2212,66 +2186,17 @@ Response.prototype.setHeaderProperties = function(header){
  * @api private
  */
 
-Response.prototype.parseBody = function(str){
+Response.prototype._parseBody = function(str) {
   var parse = request.parse[this.type];
+  if (this.req._parser) {
+    return this.req._parser(this, str);
+  }
   if (!parse && isJSON(this.type)) {
     parse = request.parse['application/json'];
   }
   return parse && str && (str.length || str instanceof Object)
     ? parse(str)
     : null;
-};
-
-/**
- * Set flags such as `.ok` based on `status`.
- *
- * For example a 2xx response will give you a `.ok` of __true__
- * whereas 5xx will be __false__ and `.error` will be __true__. The
- * `.clientError` and `.serverError` are also available to be more
- * specific, and `.statusType` is the class of error ranging from 1..5
- * sometimes useful for mapping respond colors etc.
- *
- * "sugar" properties are also defined for common cases. Currently providing:
- *
- *   - .noContent
- *   - .badRequest
- *   - .unauthorized
- *   - .notAcceptable
- *   - .notFound
- *
- * @param {Number} status
- * @api private
- */
-
-Response.prototype.setStatusProperties = function(status){
-  // handle IE9 bug: http://stackoverflow.com/questions/10046972/msie-returns-status-code-of-1223-for-ajax-request
-  if (status === 1223) {
-    status = 204;
-  }
-
-  var type = status / 100 | 0;
-
-  // status / class
-  this.status = this.statusCode = status;
-  this.statusType = type;
-
-  // basics
-  this.info = 1 == type;
-  this.ok = 2 == type;
-  this.clientError = 4 == type;
-  this.serverError = 5 == type;
-  this.error = (4 == type || 5 == type)
-    ? this.toError()
-    : false;
-
-  // sugar
-  this.accepted = 202 == status;
-  this.noContent = 204 == status;
-  this.badRequest = 400 == status;
-  this.unauthorized = 401 == status;
-  this.notAcceptable = 406 == status;
-  this.notFound = 404 == status;
-  this.forbidden = 403 == status;
 };
 
 /**
@@ -2327,55 +2252,49 @@ function Request(method, url) {
       err.parse = true;
       err.original = e;
       // issue #675: return the raw response if the response parsing fails
-      err.rawResponse = self.xhr && self.xhr.responseText ? self.xhr.responseText : null;
-      // issue #876: return the http status code if the response parsing fails
-      err.statusCode = self.xhr && self.xhr.status ? self.xhr.status : null;
+      if (self.xhr) {
+        // ie9 doesn't have 'response' property
+        err.rawResponse = typeof self.xhr.responseType == 'undefined' ? self.xhr.responseText : self.xhr.response;
+        // issue #876: return the http status code if the response parsing fails
+        err.status = self.xhr.status ? self.xhr.status : null;
+        err.statusCode = err.status; // backwards-compat only
+      } else {
+        err.rawResponse = null;
+        err.status = null;
+      }
+
       return self.callback(err);
     }
 
     self.emit('response', res);
 
-    if (err) {
-      return self.callback(err, res);
+    var new_err;
+    try {
+      if (!self._isResponseOK(res)) {
+        new_err = new Error(res.statusText || 'Unsuccessful HTTP response');
+      }
+    } catch(custom_err) {
+      new_err = custom_err; // ok() callback can throw
     }
 
-    if (res.status >= 200 && res.status < 300) {
-      return self.callback(err, res);
+    // #1000 don't catch errors from the callback to avoid double calling it
+    if (new_err) {
+      new_err.original = err;
+      new_err.response = res;
+      new_err.status = res.status;
+      self.callback(new_err, res);
+    } else {
+      self.callback(null, res);
     }
-
-    var new_err = new Error(res.statusText || 'Unsuccessful HTTP response');
-    new_err.original = err;
-    new_err.response = res;
-    new_err.status = res.status;
-
-    self.callback(new_err, res);
   });
 }
 
 /**
- * Mixin `Emitter` and `requestBase`.
+ * Mixin `Emitter` and `RequestBase`.
  */
 
 Emitter(Request.prototype);
-for (var key in requestBase) {
-  Request.prototype[key] = requestBase[key];
-}
-
-/**
- * Abort the request, and clear potential timeout.
- *
- * @return {Request}
- * @api public
- */
-
-Request.prototype.abort = function(){
-  if (this.aborted) return;
-  this.aborted = true;
-  this.xhr && this.xhr.abort();
-  this.clearTimeout();
-  this.emit('abort');
-  return this;
-};
+RequestBase(Request.prototype);
 
 /**
  * Set Content-Type to `type`, mapping values from `request.types`.
@@ -2401,26 +2320,6 @@ Request.prototype.abort = function(){
 
 Request.prototype.type = function(type){
   this.set('Content-Type', request.types[type] || type);
-  return this;
-};
-
-/**
- * Set responseType to `val`. Presently valid responseTypes are 'blob' and 
- * 'arraybuffer'.
- *
- * Examples:
- *
- *      req.get('/')
- *        .responseType('blob')
- *        .end(callback);
- *
- * @param {String} val
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.responseType = function(val){
-  this._responseType = val;
   return this;
 };
 
@@ -2453,46 +2352,47 @@ Request.prototype.accept = function(type){
  * Set Authorization field value with `user` and `pass`.
  *
  * @param {String} user
- * @param {String} pass
- * @param {Object} options with 'type' property 'auto' or 'basic' (default 'basic')
+ * @param {String} [pass] optional in case of using 'bearer' as type
+ * @param {Object} options with 'type' property 'auto', 'basic' or 'bearer' (default 'basic')
  * @return {Request} for chaining
  * @api public
  */
 
 Request.prototype.auth = function(user, pass, options){
+  if (1 === arguments.length) pass = '';
+  if (typeof pass === 'object' && pass !== null) { // pass is optional and can be replaced with options
+    options = pass;
+    pass = '';
+  }
   if (!options) {
     options = {
-      type: 'basic'
+      type: 'function' === typeof btoa ? 'basic' : 'auto',
+    };
+  }
+
+  var encoder = function(string) {
+    if ('function' === typeof btoa) {
+      return btoa(string);
     }
-  }
+    throw new Error('Cannot use basic auth, btoa is not a function');
+  };
 
-  switch (options.type) {
-    case 'basic':
-      var str = btoa(user + ':' + pass);
-      this.set('Authorization', 'Basic ' + str);
-    break;
-
-    case 'auto':
-      this.username = user;
-      this.password = pass;
-    break;
-  }
-  return this;
+  return this._auth(user, pass, options, encoder);
 };
 
 /**
-* Add query-string `val`.
-*
-* Examples:
-*
-*   request.get('/shoes')
-*     .query('size=10')
-*     .query({ color: 'blue' })
-*
-* @param {Object|String} val
-* @return {Request} for chaining
-* @api public
-*/
+ * Add query-string `val`.
+ *
+ * Examples:
+ *
+ *   request.get('/shoes')
+ *     .query('size=10')
+ *     .query({ color: 'blue' })
+ *
+ * @param {Object|String} val
+ * @return {Request} for chaining
+ * @api public
+ */
 
 Request.prototype.query = function(val){
   if ('string' != typeof val) val = serialize(val);
@@ -2502,23 +2402,29 @@ Request.prototype.query = function(val){
 
 /**
  * Queue the given `file` as an attachment to the specified `field`,
- * with optional `filename`.
+ * with optional `options` (or filename).
  *
  * ``` js
  * request.post('/upload')
- *   .attach(new Blob(['<a id="a"><b id="b">hey!</b></a>'], { type: "text/html"}))
+ *   .attach('content', new Blob(['<a id="a"><b id="b">hey!</b></a>'], { type: "text/html"}))
  *   .end(callback);
  * ```
  *
  * @param {String} field
  * @param {Blob|File} file
- * @param {String} filename
+ * @param {String|Object} options
  * @return {Request} for chaining
  * @api public
  */
 
-Request.prototype.attach = function(field, file, filename){
-  this._getFormData().append(field, file, filename || file.name);
+Request.prototype.attach = function(field, file, options){
+  if (file) {
+    if (this._data) {
+      throw Error("superagent can't mix .send() and .attach()");
+    }
+
+    this._getFormData().append(field, file, options || file.name);
+  }
   return this;
 };
 
@@ -2527,6 +2433,866 @@ Request.prototype._getFormData = function(){
     this._formData = new root.FormData();
   }
   return this._formData;
+};
+
+/**
+ * Invoke the callback with `err` and `res`
+ * and handle arity check.
+ *
+ * @param {Error} err
+ * @param {Response} res
+ * @api private
+ */
+
+Request.prototype.callback = function(err, res){
+  if (this._shouldRetry(err, res)) {
+    return this._retry();
+  }
+
+  var fn = this._callback;
+  this.clearTimeout();
+
+  if (err) {
+    if (this._maxRetries) err.retries = this._retries - 1;
+    this.emit('error', err);
+  }
+
+  fn(err, res);
+};
+
+/**
+ * Invoke callback with x-domain error.
+ *
+ * @api private
+ */
+
+Request.prototype.crossDomainError = function(){
+  var err = new Error('Request has been terminated\nPossible causes: the network is offline, Origin is not allowed by Access-Control-Allow-Origin, the page is being unloaded, etc.');
+  err.crossDomain = true;
+
+  err.status = this.status;
+  err.method = this.method;
+  err.url = this.url;
+
+  this.callback(err);
+};
+
+// This only warns, because the request is still likely to work
+Request.prototype.buffer = Request.prototype.ca = Request.prototype.agent = function(){
+  console.warn("This is not supported in browser version of superagent");
+  return this;
+};
+
+// This throws, because it can't send/receive data as expected
+Request.prototype.pipe = Request.prototype.write = function(){
+  throw Error("Streaming is not supported in browser version of superagent");
+};
+
+/**
+ * Check if `obj` is a host object,
+ * we don't want to serialize these :)
+ *
+ * @param {Object} obj
+ * @return {Boolean}
+ * @api private
+ */
+Request.prototype._isHost = function _isHost(obj) {
+  // Native objects stringify to [object File], [object Blob], [object FormData], etc.
+  return obj && 'object' === typeof obj && !Array.isArray(obj) && Object.prototype.toString.call(obj) !== '[object Object]';
+}
+
+/**
+ * Initiate request, invoking callback `fn(res)`
+ * with an instanceof `Response`.
+ *
+ * @param {Function} fn
+ * @return {Request} for chaining
+ * @api public
+ */
+
+Request.prototype.end = function(fn){
+  if (this._endCalled) {
+    console.warn("Warning: .end() was called twice. This is not supported in superagent");
+  }
+  this._endCalled = true;
+
+  // store callback
+  this._callback = fn || noop;
+
+  // querystring
+  this._finalizeQueryString();
+
+  return this._end();
+};
+
+Request.prototype._end = function() {
+  var self = this;
+  var xhr = (this.xhr = request.getXHR());
+  var data = this._formData || this._data;
+
+  this._setTimeouts();
+
+  // state change
+  xhr.onreadystatechange = function(){
+    var readyState = xhr.readyState;
+    if (readyState >= 2 && self._responseTimeoutTimer) {
+      clearTimeout(self._responseTimeoutTimer);
+    }
+    if (4 != readyState) {
+      return;
+    }
+
+    // In IE9, reads to any property (e.g. status) off of an aborted XHR will
+    // result in the error "Could not complete the operation due to error c00c023f"
+    var status;
+    try { status = xhr.status } catch(e) { status = 0; }
+
+    if (!status) {
+      if (self.timedout || self._aborted) return;
+      return self.crossDomainError();
+    }
+    self.emit('end');
+  };
+
+  // progress
+  var handleProgress = function(direction, e) {
+    if (e.total > 0) {
+      e.percent = e.loaded / e.total * 100;
+    }
+    e.direction = direction;
+    self.emit('progress', e);
+  };
+  if (this.hasListeners('progress')) {
+    try {
+      xhr.onprogress = handleProgress.bind(null, 'download');
+      if (xhr.upload) {
+        xhr.upload.onprogress = handleProgress.bind(null, 'upload');
+      }
+    } catch(e) {
+      // Accessing xhr.upload fails in IE from a web worker, so just pretend it doesn't exist.
+      // Reported here:
+      // https://connect.microsoft.com/IE/feedback/details/837245/xmlhttprequest-upload-throws-invalid-argument-when-used-from-web-worker-context
+    }
+  }
+
+  // initiate request
+  try {
+    if (this.username && this.password) {
+      xhr.open(this.method, this.url, true, this.username, this.password);
+    } else {
+      xhr.open(this.method, this.url, true);
+    }
+  } catch (err) {
+    // see #1149
+    return this.callback(err);
+  }
+
+  // CORS
+  if (this._withCredentials) xhr.withCredentials = true;
+
+  // body
+  if (!this._formData && 'GET' != this.method && 'HEAD' != this.method && 'string' != typeof data && !this._isHost(data)) {
+    // serialize stuff
+    var contentType = this._header['content-type'];
+    var serialize = this._serializer || request.serialize[contentType ? contentType.split(';')[0] : ''];
+    if (!serialize && isJSON(contentType)) {
+      serialize = request.serialize['application/json'];
+    }
+    if (serialize) data = serialize(data);
+  }
+
+  // set header fields
+  for (var field in this.header) {
+    if (null == this.header[field]) continue;
+
+    if (this.header.hasOwnProperty(field))
+      xhr.setRequestHeader(field, this.header[field]);
+  }
+
+  if (this._responseType) {
+    xhr.responseType = this._responseType;
+  }
+
+  // send stuff
+  this.emit('request', this);
+
+  // IE11 xhr.send(undefined) sends 'undefined' string as POST payload (instead of nothing)
+  // We need null here if data is undefined
+  xhr.send(typeof data !== 'undefined' ? data : null);
+  return this;
+};
+
+request.agent = function() {
+  return new Agent();
+};
+
+["GET", "POST", "OPTIONS", "PATCH", "PUT", "DELETE"].forEach(function(method) {
+  Agent.prototype[method.toLowerCase()] = function(url, fn) {
+    var req = new request.Request(method, url);
+    this._setDefaults(req);
+    if (fn) {
+      req.end(fn);
+    }
+    return req;
+  };
+});
+
+Agent.prototype.del = Agent.prototype['delete'];
+
+/**
+ * GET `url` with optional callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed|Function} [data] or fn
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.get = function(url, data, fn) {
+  var req = request('GET', url);
+  if ('function' == typeof data) (fn = data), (data = null);
+  if (data) req.query(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+/**
+ * HEAD `url` with optional callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed|Function} [data] or fn
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.head = function(url, data, fn) {
+  var req = request('HEAD', url);
+  if ('function' == typeof data) (fn = data), (data = null);
+  if (data) req.query(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+/**
+ * OPTIONS query to `url` with optional callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed|Function} [data] or fn
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.options = function(url, data, fn) {
+  var req = request('OPTIONS', url);
+  if ('function' == typeof data) (fn = data), (data = null);
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+/**
+ * DELETE `url` with optional `data` and callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed} [data]
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+function del(url, data, fn) {
+  var req = request('DELETE', url);
+  if ('function' == typeof data) (fn = data), (data = null);
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+}
+
+request['del'] = del;
+request['delete'] = del;
+
+/**
+ * PATCH `url` with optional `data` and callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed} [data]
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.patch = function(url, data, fn) {
+  var req = request('PATCH', url);
+  if ('function' == typeof data) (fn = data), (data = null);
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+/**
+ * POST `url` with optional `data` and callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed} [data]
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.post = function(url, data, fn) {
+  var req = request('POST', url);
+  if ('function' == typeof data) (fn = data), (data = null);
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+/**
+ * PUT `url` with optional `data` and callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed|Function} [data] or fn
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.put = function(url, data, fn) {
+  var req = request('PUT', url);
+  if ('function' == typeof data) (fn = data), (data = null);
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+},{"./agent-base":9,"./is-object":11,"./request-base":12,"./response-base":13,"component-emitter":4}],11:[function(require,module,exports){
+'use strict';
+
+/**
+ * Check if `obj` is an object.
+ *
+ * @param {Object} obj
+ * @return {Boolean}
+ * @api private
+ */
+
+function isObject(obj) {
+  return null !== obj && 'object' === typeof obj;
+}
+
+module.exports = isObject;
+
+},{}],12:[function(require,module,exports){
+'use strict';
+
+/**
+ * Module of mixed-in functions shared between node and client code
+ */
+var isObject = require('./is-object');
+
+/**
+ * Expose `RequestBase`.
+ */
+
+module.exports = RequestBase;
+
+/**
+ * Initialize a new `RequestBase`.
+ *
+ * @api public
+ */
+
+function RequestBase(obj) {
+  if (obj) return mixin(obj);
+}
+
+/**
+ * Mixin the prototype properties.
+ *
+ * @param {Object} obj
+ * @return {Object}
+ * @api private
+ */
+
+function mixin(obj) {
+  for (var key in RequestBase.prototype) {
+    obj[key] = RequestBase.prototype[key];
+  }
+  return obj;
+}
+
+/**
+ * Clear previous timeout.
+ *
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.clearTimeout = function _clearTimeout(){
+  clearTimeout(this._timer);
+  clearTimeout(this._responseTimeoutTimer);
+  delete this._timer;
+  delete this._responseTimeoutTimer;
+  return this;
+};
+
+/**
+ * Override default response body parser
+ *
+ * This function will be called to convert incoming data into request.body
+ *
+ * @param {Function}
+ * @api public
+ */
+
+RequestBase.prototype.parse = function parse(fn){
+  this._parser = fn;
+  return this;
+};
+
+/**
+ * Set format of binary response body.
+ * In browser valid formats are 'blob' and 'arraybuffer',
+ * which return Blob and ArrayBuffer, respectively.
+ *
+ * In Node all values result in Buffer.
+ *
+ * Examples:
+ *
+ *      req.get('/')
+ *        .responseType('blob')
+ *        .end(callback);
+ *
+ * @param {String} val
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.responseType = function(val){
+  this._responseType = val;
+  return this;
+};
+
+/**
+ * Override default request body serializer
+ *
+ * This function will be called to convert data set via .send or .attach into payload to send
+ *
+ * @param {Function}
+ * @api public
+ */
+
+RequestBase.prototype.serialize = function serialize(fn){
+  this._serializer = fn;
+  return this;
+};
+
+/**
+ * Set timeouts.
+ *
+ * - response timeout is time between sending request and receiving the first byte of the response. Includes DNS and connection time.
+ * - deadline is the time from start of the request to receiving response body in full. If the deadline is too short large files may not load at all on slow connections.
+ *
+ * Value of 0 or false means no timeout.
+ *
+ * @param {Number|Object} ms or {response, deadline}
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.timeout = function timeout(options){
+  if (!options || 'object' !== typeof options) {
+    this._timeout = options;
+    this._responseTimeout = 0;
+    return this;
+  }
+
+  for(var option in options) {
+    switch(option) {
+      case 'deadline':
+        this._timeout = options.deadline;
+        break;
+      case 'response':
+        this._responseTimeout = options.response;
+        break;
+      default:
+        console.warn("Unknown timeout option", option);
+    }
+  }
+  return this;
+};
+
+/**
+ * Set number of retry attempts on error.
+ *
+ * Failed requests will be retried 'count' times if timeout or err.code >= 500.
+ *
+ * @param {Number} count
+ * @param {Function} [fn]
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.retry = function retry(count, fn){
+  // Default to 1 if no count passed or true
+  if (arguments.length === 0 || count === true) count = 1;
+  if (count <= 0) count = 0;
+  this._maxRetries = count;
+  this._retries = 0;
+  this._retryCallback = fn;
+  return this;
+};
+
+var ERROR_CODES = [
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'EADDRINFO',
+  'ESOCKETTIMEDOUT'
+];
+
+/**
+ * Determine if a request should be retried.
+ * (Borrowed from segmentio/superagent-retry)
+ *
+ * @param {Error} err
+ * @param {Response} [res]
+ * @returns {Boolean}
+ */
+RequestBase.prototype._shouldRetry = function(err, res) {
+  if (!this._maxRetries || this._retries++ >= this._maxRetries) {
+    return false;
+  }
+  if (this._retryCallback) {
+    try {
+      var override = this._retryCallback(err, res);
+      if (override === true) return true;
+      if (override === false) return false;
+      // undefined falls back to defaults
+    } catch(e) {
+      console.error(e);
+    }
+  }
+  if (res && res.status && res.status >= 500 && res.status != 501) return true;
+  if (err) {
+    if (err.code && ~ERROR_CODES.indexOf(err.code)) return true;
+    // Superagent timeout
+    if (err.timeout && err.code == 'ECONNABORTED') return true;
+    if (err.crossDomain) return true;
+  }
+  return false;
+};
+
+/**
+ * Retry request
+ *
+ * @return {Request} for chaining
+ * @api private
+ */
+
+RequestBase.prototype._retry = function() {
+
+  this.clearTimeout();
+
+  // node
+  if (this.req) {
+    this.req = null;
+    this.req = this.request();
+  }
+
+  this._aborted = false;
+  this.timedout = false;
+
+  return this._end();
+};
+
+/**
+ * Promise support
+ *
+ * @param {Function} resolve
+ * @param {Function} [reject]
+ * @return {Request}
+ */
+
+RequestBase.prototype.then = function then(resolve, reject) {
+  if (!this._fullfilledPromise) {
+    var self = this;
+    if (this._endCalled) {
+      console.warn("Warning: superagent request was sent twice, because both .end() and .then() were called. Never call .end() if you use promises");
+    }
+    this._fullfilledPromise = new Promise(function(innerResolve, innerReject) {
+      self.end(function(err, res) {
+        if (err) innerReject(err);
+        else innerResolve(res);
+      });
+    });
+  }
+  return this._fullfilledPromise.then(resolve, reject);
+};
+
+RequestBase.prototype.catch = function(cb) {
+  return this.then(undefined, cb);
+};
+
+/**
+ * Allow for extension
+ */
+
+RequestBase.prototype.use = function use(fn) {
+  fn(this);
+  return this;
+};
+
+RequestBase.prototype.ok = function(cb) {
+  if ('function' !== typeof cb) throw Error("Callback required");
+  this._okCallback = cb;
+  return this;
+};
+
+RequestBase.prototype._isResponseOK = function(res) {
+  if (!res) {
+    return false;
+  }
+
+  if (this._okCallback) {
+    return this._okCallback(res);
+  }
+
+  return res.status >= 200 && res.status < 300;
+};
+
+/**
+ * Get request header `field`.
+ * Case-insensitive.
+ *
+ * @param {String} field
+ * @return {String}
+ * @api public
+ */
+
+RequestBase.prototype.get = function(field){
+  return this._header[field.toLowerCase()];
+};
+
+/**
+ * Get case-insensitive header `field` value.
+ * This is a deprecated internal API. Use `.get(field)` instead.
+ *
+ * (getHeader is no longer used internally by the superagent code base)
+ *
+ * @param {String} field
+ * @return {String}
+ * @api private
+ * @deprecated
+ */
+
+RequestBase.prototype.getHeader = RequestBase.prototype.get;
+
+/**
+ * Set header `field` to `val`, or multiple fields with one object.
+ * Case-insensitive.
+ *
+ * Examples:
+ *
+ *      req.get('/')
+ *        .set('Accept', 'application/json')
+ *        .set('X-API-Key', 'foobar')
+ *        .end(callback);
+ *
+ *      req.get('/')
+ *        .set({ Accept: 'application/json', 'X-API-Key': 'foobar' })
+ *        .end(callback);
+ *
+ * @param {String|Object} field
+ * @param {String} val
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.set = function(field, val){
+  if (isObject(field)) {
+    for (var key in field) {
+      this.set(key, field[key]);
+    }
+    return this;
+  }
+  this._header[field.toLowerCase()] = val;
+  this.header[field] = val;
+  return this;
+};
+
+/**
+ * Remove header `field`.
+ * Case-insensitive.
+ *
+ * Example:
+ *
+ *      req.get('/')
+ *        .unset('User-Agent')
+ *        .end(callback);
+ *
+ * @param {String} field
+ */
+RequestBase.prototype.unset = function(field){
+  delete this._header[field.toLowerCase()];
+  delete this.header[field];
+  return this;
+};
+
+/**
+ * Write the field `name` and `val`, or multiple fields with one object
+ * for "multipart/form-data" request bodies.
+ *
+ * ``` js
+ * request.post('/upload')
+ *   .field('foo', 'bar')
+ *   .end(callback);
+ *
+ * request.post('/upload')
+ *   .field({ foo: 'bar', baz: 'qux' })
+ *   .end(callback);
+ * ```
+ *
+ * @param {String|Object} name
+ * @param {String|Blob|File|Buffer|fs.ReadStream} val
+ * @return {Request} for chaining
+ * @api public
+ */
+RequestBase.prototype.field = function(name, val) {
+  // name should be either a string or an object.
+  if (null === name || undefined === name) {
+    throw new Error('.field(name, val) name can not be empty');
+  }
+
+  if (this._data) {
+    console.error(".field() can't be used if .send() is used. Please use only .send() or only .field() & .attach()");
+  }
+
+  if (isObject(name)) {
+    for (var key in name) {
+      this.field(key, name[key]);
+    }
+    return this;
+  }
+
+  if (Array.isArray(val)) {
+    for (var i in val) {
+      this.field(name, val[i]);
+    }
+    return this;
+  }
+
+  // val should be defined now
+  if (null === val || undefined === val) {
+    throw new Error('.field(name, val) val can not be empty');
+  }
+  if ('boolean' === typeof val) {
+    val = '' + val;
+  }
+  this._getFormData().append(name, val);
+  return this;
+};
+
+/**
+ * Abort the request, and clear potential timeout.
+ *
+ * @return {Request}
+ * @api public
+ */
+RequestBase.prototype.abort = function(){
+  if (this._aborted) {
+    return this;
+  }
+  this._aborted = true;
+  this.xhr && this.xhr.abort(); // browser
+  this.req && this.req.abort(); // node
+  this.clearTimeout();
+  this.emit('abort');
+  return this;
+};
+
+RequestBase.prototype._auth = function(user, pass, options, base64Encoder) {
+  switch (options.type) {
+    case 'basic':
+      this.set('Authorization', 'Basic ' + base64Encoder(user + ':' + pass));
+      break;
+
+    case 'auto':
+      this.username = user;
+      this.password = pass;
+      break;
+
+    case 'bearer': // usage would be .auth(accessToken, { type: 'bearer' })
+      this.set('Authorization', 'Bearer ' + user);
+      break;
+  }
+  return this;
+};
+
+/**
+ * Enable transmission of cookies with x-domain requests.
+ *
+ * Note that for this to work the origin must not be
+ * using "Access-Control-Allow-Origin" with a wildcard,
+ * and also must set "Access-Control-Allow-Credentials"
+ * to "true".
+ *
+ * @api public
+ */
+
+RequestBase.prototype.withCredentials = function(on) {
+  // This is browser-only functionality. Node side is no-op.
+  if (on == undefined) on = true;
+  this._withCredentials = on;
+  return this;
+};
+
+/**
+ * Set the max redirects to `n`. Does noting in browser XHR implementation.
+ *
+ * @param {Number} n
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.redirects = function(n){
+  this._maxRedirects = n;
+  return this;
+};
+
+/**
+ * Maximum size of buffered response body, in bytes. Counts uncompressed size.
+ * Default 200MB.
+ *
+ * @param {Number} n
+ * @return {Request} for chaining
+ */
+RequestBase.prototype.maxResponseSize = function(n){
+  if ('number' !== typeof n) {
+    throw TypeError("Invalid argument");
+  }
+  this._maxResponseSize = n;
+  return this;
+};
+
+/**
+ * Convert to a plain javascript object (not JSON string) of scalar properties.
+ * Note as this method is designed to return a useful non-this value,
+ * it cannot be chained.
+ *
+ * @return {Object} describing method, url, and data of this request
+ * @api public
+ */
+
+RequestBase.prototype.toJSON = function() {
+  return {
+    method: this.method,
+    url: this.url,
+    data: this._data,
+    headers: this._header,
+  };
 };
 
 /**
@@ -2559,26 +3325,41 @@ Request.prototype._getFormData = function(){
  *         .end(callback)
  *
  *       // defaults to x-www-form-urlencoded
-  *      request.post('/user')
-  *        .send('name=tobi')
-  *        .send('species=ferret')
-  *        .end(callback)
+ *      request.post('/user')
+ *        .send('name=tobi')
+ *        .send('species=ferret')
+ *        .end(callback)
  *
  * @param {String|Object} data
  * @return {Request} for chaining
  * @api public
  */
 
-Request.prototype.send = function(data){
-  var obj = isObject(data);
+RequestBase.prototype.send = function(data){
+  var isObj = isObject(data);
   var type = this._header['content-type'];
 
+  if (this._formData) {
+    console.error(".send() can't be used if .attach() or .field() is used. Please use only .send() or only .field() & .attach()");
+  }
+
+  if (isObj && !this._data) {
+    if (Array.isArray(data)) {
+      this._data = [];
+    } else if (!this._isHost(data)) {
+      this._data = {};
+    }
+  } else if (data && this._data && this._isHost(this._data)) {
+    throw Error("Can't merge these send calls");
+  }
+
   // merge
-  if (obj && isObject(this._data)) {
+  if (isObj && isObject(this._data)) {
     for (var key in data) {
       this._data[key] = data[key];
     }
   } else if ('string' == typeof data) {
+    // default to x-www-form-urlencoded
     if (!type) this.type('form');
     type = this._header['content-type'];
     if ('application/x-www-form-urlencoded' == type) {
@@ -2592,58 +3373,77 @@ Request.prototype.send = function(data){
     this._data = data;
   }
 
-  if (!obj || isHost(data)) return this;
+  if (!isObj || this._isHost(data)) {
+    return this;
+  }
+
+  // default to json
   if (!type) this.type('json');
   return this;
 };
 
 /**
- * @deprecated
+ * Sort `querystring` by the sort function
+ *
+ *
+ * Examples:
+ *
+ *       // default order
+ *       request.get('/user')
+ *         .query('name=Nick')
+ *         .query('search=Manny')
+ *         .sortQuery()
+ *         .end(callback)
+ *
+ *       // customized sort function
+ *       request.get('/user')
+ *         .query('name=Nick')
+ *         .query('search=Manny')
+ *         .sortQuery(function(a, b){
+ *           return a.length - b.length;
+ *         })
+ *         .end(callback)
+ *
+ *
+ * @param {Function} sort
+ * @return {Request} for chaining
+ * @api public
  */
-Response.prototype.parse = function serialize(fn){
-  if (root.console) {
-    console.warn("Client-side parse() method has been renamed to serialize(). This method is not compatible with superagent v2.0");
+
+RequestBase.prototype.sortQuery = function(sort) {
+  // _sort default to true but otherwise can be a function or boolean
+  this._sort = typeof sort === 'undefined' ? true : sort;
+  return this;
+};
+
+/**
+ * Compose querystring to append to req.url
+ *
+ * @api private
+ */
+RequestBase.prototype._finalizeQueryString = function(){
+  var query = this._query.join('&');
+  if (query) {
+    this.url += (this.url.indexOf('?') >= 0 ? '&' : '?') + query;
   }
-  this.serialize(fn);
-  return this;
+  this._query.length = 0; // Makes the call idempotent
+
+  if (this._sort) {
+    var index = this.url.indexOf('?');
+    if (index >= 0) {
+      var queryArr = this.url.substring(index + 1).split('&');
+      if ('function' === typeof this._sort) {
+        queryArr.sort(this._sort);
+      } else {
+        queryArr.sort();
+      }
+      this.url = this.url.substring(0, index) + '?' + queryArr.join('&');
+    }
+  }
 };
 
-Response.prototype.serialize = function serialize(fn){
-  this._parser = fn;
-  return this;
-};
-
-/**
- * Invoke the callback with `err` and `res`
- * and handle arity check.
- *
- * @param {Error} err
- * @param {Response} res
- * @api private
- */
-
-Request.prototype.callback = function(err, res){
-  var fn = this._callback;
-  this.clearTimeout();
-  fn(err, res);
-};
-
-/**
- * Invoke callback with x-domain error.
- *
- * @api private
- */
-
-Request.prototype.crossDomainError = function(){
-  var err = new Error('Request has been terminated\nPossible causes: the network is offline, Origin is not allowed by Access-Control-Allow-Origin, the page is being unloaded, etc.');
-  err.crossDomain = true;
-
-  err.status = this.status;
-  err.method = this.method;
-  err.url = this.url;
-
-  this.callback(err);
-};
+// For backwards compat only
+RequestBase.prototype._appendQueryString = function() {console.trace("Unsupported");}
 
 /**
  * Invoke callback with timeout error.
@@ -2651,473 +3451,317 @@ Request.prototype.crossDomainError = function(){
  * @api private
  */
 
-Request.prototype.timeoutError = function(){
-  var timeout = this._timeout;
-  var err = new Error('timeout of ' + timeout + 'ms exceeded');
+RequestBase.prototype._timeoutError = function(reason, timeout, errno){
+  if (this._aborted) {
+    return;
+  }
+  var err = new Error(reason + timeout + 'ms exceeded');
   err.timeout = timeout;
+  err.code = 'ECONNABORTED';
+  err.errno = errno;
+  this.timedout = true;
+  this.abort();
   this.callback(err);
 };
 
-/**
- * Enable transmission of cookies with x-domain requests.
- *
- * Note that for this to work the origin must not be
- * using "Access-Control-Allow-Origin" with a wildcard,
- * and also must set "Access-Control-Allow-Credentials"
- * to "true".
- *
- * @api public
- */
-
-Request.prototype.withCredentials = function(){
-  this._withCredentials = true;
-  return this;
-};
-
-/**
- * Initiate request, invoking callback `fn(res)`
- * with an instanceof `Response`.
- *
- * @param {Function} fn
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.end = function(fn){
+RequestBase.prototype._setTimeouts = function() {
   var self = this;
-  var xhr = this.xhr = request.getXHR();
-  var query = this._query.join('&');
-  var timeout = this._timeout;
-  var data = this._formData || this._data;
 
-  // store callback
-  this._callback = fn || noop;
-
-  // state change
-  xhr.onreadystatechange = function(){
-    if (4 != xhr.readyState) return;
-
-    // In IE9, reads to any property (e.g. status) off of an aborted XHR will
-    // result in the error "Could not complete the operation due to error c00c023f"
-    var status;
-    try { status = xhr.status } catch(e) { status = 0; }
-
-    if (0 == status) {
-      if (self.timedout) return self.timeoutError();
-      if (self.aborted) return;
-      return self.crossDomainError();
-    }
-    self.emit('end');
-  };
-
-  // progress
-  var handleProgress = function(e){
-    if (e.total > 0) {
-      e.percent = e.loaded / e.total * 100;
-    }
-    e.direction = 'download';
-    self.emit('progress', e);
-  };
-  if (this.hasListeners('progress')) {
-    xhr.onprogress = handleProgress;
-  }
-  try {
-    if (xhr.upload && this.hasListeners('progress')) {
-      xhr.upload.onprogress = handleProgress;
-    }
-  } catch(e) {
-    // Accessing xhr.upload fails in IE from a web worker, so just pretend it doesn't exist.
-    // Reported here:
-    // https://connect.microsoft.com/IE/feedback/details/837245/xmlhttprequest-upload-throws-invalid-argument-when-used-from-web-worker-context
-  }
-
-  // timeout
-  if (timeout && !this._timer) {
+  // deadline
+  if (this._timeout && !this._timer) {
     this._timer = setTimeout(function(){
-      self.timedout = true;
-      self.abort();
-    }, timeout);
+      self._timeoutError('Timeout of ', self._timeout, 'ETIME');
+    }, this._timeout);
   }
-
-  // querystring
-  if (query) {
-    query = request.serializeObject(query);
-    this.url += ~this.url.indexOf('?')
-      ? '&' + query
-      : '?' + query;
+  // response timeout
+  if (this._responseTimeout && !this._responseTimeoutTimer) {
+    this._responseTimeoutTimer = setTimeout(function(){
+      self._timeoutError('Response timeout of ', self._responseTimeout, 'ETIMEDOUT');
+    }, this._responseTimeout);
   }
-
-  // initiate request
-  if (this.username && this.password) {
-    xhr.open(this.method, this.url, true, this.username, this.password);
-  } else {
-    xhr.open(this.method, this.url, true);
-  }
-
-  // CORS
-  if (this._withCredentials) xhr.withCredentials = true;
-
-  // body
-  if ('GET' != this.method && 'HEAD' != this.method && 'string' != typeof data && !isHost(data)) {
-    // serialize stuff
-    var contentType = this._header['content-type'];
-    var serialize = this._parser || request.serialize[contentType ? contentType.split(';')[0] : ''];
-    if (!serialize && isJSON(contentType)) serialize = request.serialize['application/json'];
-    if (serialize) data = serialize(data);
-  }
-
-  // set header fields
-  for (var field in this.header) {
-    if (null == this.header[field]) continue;
-    xhr.setRequestHeader(field, this.header[field]);
-  }
-
-  if (this._responseType) {
-    xhr.responseType = this._responseType;
-  }
-
-  // send stuff
-  this.emit('request', this);
-
-  // IE11 xhr.send(undefined) sends 'undefined' string as POST payload (instead of nothing)
-  // We need null here if data is undefined
-  xhr.send(typeof data !== 'undefined' ? data : null);
-  return this;
-};
-
-
-/**
- * Expose `Request`.
- */
-
-request.Request = Request;
-
-/**
- * GET `url` with optional callback `fn(res)`.
- *
- * @param {String} url
- * @param {Mixed|Function} data or fn
- * @param {Function} fn
- * @return {Request}
- * @api public
- */
-
-request.get = function(url, data, fn){
-  var req = request('GET', url);
-  if ('function' == typeof data) fn = data, data = null;
-  if (data) req.query(data);
-  if (fn) req.end(fn);
-  return req;
-};
-
-/**
- * HEAD `url` with optional callback `fn(res)`.
- *
- * @param {String} url
- * @param {Mixed|Function} data or fn
- * @param {Function} fn
- * @return {Request}
- * @api public
- */
-
-request.head = function(url, data, fn){
-  var req = request('HEAD', url);
-  if ('function' == typeof data) fn = data, data = null;
-  if (data) req.send(data);
-  if (fn) req.end(fn);
-  return req;
-};
-
-/**
- * DELETE `url` with optional callback `fn(res)`.
- *
- * @param {String} url
- * @param {Function} fn
- * @return {Request}
- * @api public
- */
-
-function del(url, fn){
-  var req = request('DELETE', url);
-  if (fn) req.end(fn);
-  return req;
-};
-
-request['del'] = del;
-request['delete'] = del;
-
-/**
- * PATCH `url` with optional `data` and callback `fn(res)`.
- *
- * @param {String} url
- * @param {Mixed} data
- * @param {Function} fn
- * @return {Request}
- * @api public
- */
-
-request.patch = function(url, data, fn){
-  var req = request('PATCH', url);
-  if ('function' == typeof data) fn = data, data = null;
-  if (data) req.send(data);
-  if (fn) req.end(fn);
-  return req;
-};
-
-/**
- * POST `url` with optional `data` and callback `fn(res)`.
- *
- * @param {String} url
- * @param {Mixed} data
- * @param {Function} fn
- * @return {Request}
- * @api public
- */
-
-request.post = function(url, data, fn){
-  var req = request('POST', url);
-  if ('function' == typeof data) fn = data, data = null;
-  if (data) req.send(data);
-  if (fn) req.end(fn);
-  return req;
-};
-
-/**
- * PUT `url` with optional `data` and callback `fn(res)`.
- *
- * @param {String} url
- * @param {Mixed|Function} data or fn
- * @param {Function} fn
- * @return {Request}
- * @api public
- */
-
-request.put = function(url, data, fn){
-  var req = request('PUT', url);
-  if ('function' == typeof data) fn = data, data = null;
-  if (data) req.send(data);
-  if (fn) req.end(fn);
-  return req;
-};
-
-},{"./is-object":11,"./request":13,"./request-base":12,"emitter":4,"reduce":9}],11:[function(require,module,exports){
-/**
- * Check if `obj` is an object.
- *
- * @param {Object} obj
- * @return {Boolean}
- * @api private
- */
-
-function isObject(obj) {
-  return null != obj && 'object' == typeof obj;
-}
-
-module.exports = isObject;
-
-},{}],12:[function(require,module,exports){
-/**
- * Module of mixed-in functions shared between node and client code
- */
-var isObject = require('./is-object');
-
-/**
- * Clear previous timeout.
- *
- * @return {Request} for chaining
- * @api public
- */
-
-exports.clearTimeout = function _clearTimeout(){
-  this._timeout = 0;
-  clearTimeout(this._timer);
-  return this;
-};
-
-/**
- * Force given parser
- *
- * Sets the body parser no matter type.
- *
- * @param {Function}
- * @api public
- */
-
-exports.parse = function parse(fn){
-  this._parser = fn;
-  return this;
-};
-
-/**
- * Set timeout to `ms`.
- *
- * @param {Number} ms
- * @return {Request} for chaining
- * @api public
- */
-
-exports.timeout = function timeout(ms){
-  this._timeout = ms;
-  return this;
-};
-
-/**
- * Faux promise support
- *
- * @param {Function} fulfill
- * @param {Function} reject
- * @return {Request}
- */
-
-exports.then = function then(fulfill, reject) {
-  return this.end(function(err, res) {
-    err ? reject(err) : fulfill(res);
-  });
-}
-
-/**
- * Allow for extension
- */
-
-exports.use = function use(fn) {
-  fn(this);
-  return this;
-}
-
-
-/**
- * Get request header `field`.
- * Case-insensitive.
- *
- * @param {String} field
- * @return {String}
- * @api public
- */
-
-exports.get = function(field){
-  return this._header[field.toLowerCase()];
-};
-
-/**
- * Get case-insensitive header `field` value.
- * This is a deprecated internal API. Use `.get(field)` instead.
- *
- * (getHeader is no longer used internally by the superagent code base)
- *
- * @param {String} field
- * @return {String}
- * @api private
- * @deprecated
- */
-
-exports.getHeader = exports.get;
-
-/**
- * Set header `field` to `val`, or multiple fields with one object.
- * Case-insensitive.
- *
- * Examples:
- *
- *      req.get('/')
- *        .set('Accept', 'application/json')
- *        .set('X-API-Key', 'foobar')
- *        .end(callback);
- *
- *      req.get('/')
- *        .set({ Accept: 'application/json', 'X-API-Key': 'foobar' })
- *        .end(callback);
- *
- * @param {String|Object} field
- * @param {String} val
- * @return {Request} for chaining
- * @api public
- */
-
-exports.set = function(field, val){
-  if (isObject(field)) {
-    for (var key in field) {
-      this.set(key, field[key]);
-    }
-    return this;
-  }
-  this._header[field.toLowerCase()] = val;
-  this.header[field] = val;
-  return this;
-};
-
-/**
- * Remove header `field`.
- * Case-insensitive.
- *
- * Example:
- *
- *      req.get('/')
- *        .unset('User-Agent')
- *        .end(callback);
- *
- * @param {String} field
- */
-exports.unset = function(field){
-  delete this._header[field.toLowerCase()];
-  delete this.header[field];
-  return this;
-};
-
-/**
- * Write the field `name` and `val` for "multipart/form-data"
- * request bodies.
- *
- * ``` js
- * request.post('/upload')
- *   .field('foo', 'bar')
- *   .end(callback);
- * ```
- *
- * @param {String} name
- * @param {String|Blob|File|Buffer|fs.ReadStream} val
- * @return {Request} for chaining
- * @api public
- */
-exports.field = function(name, val) {
-  this._getFormData().append(name, val);
-  return this;
 };
 
 },{"./is-object":11}],13:[function(require,module,exports){
-// The node and browser modules expose versions of this with the
-// appropriate constructor function bound as first argument
+'use strict';
+
 /**
- * Issue a request:
+ * Module dependencies.
+ */
+
+var utils = require('./utils');
+
+/**
+ * Expose `ResponseBase`.
+ */
+
+module.exports = ResponseBase;
+
+/**
+ * Initialize a new `ResponseBase`.
  *
- * Examples:
- *
- *    request('GET', '/users').end(callback)
- *    request('/users').end(callback)
- *    request('/users', callback)
- *
- * @param {String} method
- * @param {String|Function} url or callback
- * @return {Request}
  * @api public
  */
 
-function request(RequestConstructor, method, url) {
-  // callback
-  if ('function' == typeof url) {
-    return new RequestConstructor('GET', method).end(url);
-  }
-
-  // url first
-  if (2 == arguments.length) {
-    return new RequestConstructor('GET', method);
-  }
-
-  return new RequestConstructor(method, url);
+function ResponseBase(obj) {
+  if (obj) return mixin(obj);
 }
 
-module.exports = request;
+/**
+ * Mixin the prototype properties.
+ *
+ * @param {Object} obj
+ * @return {Object}
+ * @api private
+ */
 
-},{}],14:[function(require,module,exports){
+function mixin(obj) {
+  for (var key in ResponseBase.prototype) {
+    obj[key] = ResponseBase.prototype[key];
+  }
+  return obj;
+}
+
+/**
+ * Get case-insensitive `field` value.
+ *
+ * @param {String} field
+ * @return {String}
+ * @api public
+ */
+
+ResponseBase.prototype.get = function(field) {
+  return this.header[field.toLowerCase()];
+};
+
+/**
+ * Set header related properties:
+ *
+ *   - `.type` the content type without params
+ *
+ * A response of "Content-Type: text/plain; charset=utf-8"
+ * will provide you with a `.type` of "text/plain".
+ *
+ * @param {Object} header
+ * @api private
+ */
+
+ResponseBase.prototype._setHeaderProperties = function(header){
+    // TODO: moar!
+    // TODO: make this a util
+
+    // content-type
+    var ct = header['content-type'] || '';
+    this.type = utils.type(ct);
+
+    // params
+    var params = utils.params(ct);
+    for (var key in params) this[key] = params[key];
+
+    this.links = {};
+
+    // links
+    try {
+        if (header.link) {
+            this.links = utils.parseLinks(header.link);
+        }
+    } catch (err) {
+        // ignore
+    }
+};
+
+/**
+ * Set flags such as `.ok` based on `status`.
+ *
+ * For example a 2xx response will give you a `.ok` of __true__
+ * whereas 5xx will be __false__ and `.error` will be __true__. The
+ * `.clientError` and `.serverError` are also available to be more
+ * specific, and `.statusType` is the class of error ranging from 1..5
+ * sometimes useful for mapping respond colors etc.
+ *
+ * "sugar" properties are also defined for common cases. Currently providing:
+ *
+ *   - .noContent
+ *   - .badRequest
+ *   - .unauthorized
+ *   - .notAcceptable
+ *   - .notFound
+ *
+ * @param {Number} status
+ * @api private
+ */
+
+ResponseBase.prototype._setStatusProperties = function(status){
+    var type = status / 100 | 0;
+
+    // status / class
+    this.status = this.statusCode = status;
+    this.statusType = type;
+
+    // basics
+    this.info = 1 == type;
+    this.ok = 2 == type;
+    this.redirect = 3 == type;
+    this.clientError = 4 == type;
+    this.serverError = 5 == type;
+    this.error = (4 == type || 5 == type)
+        ? this.toError()
+        : false;
+
+    // sugar
+    this.accepted = 202 == status;
+    this.noContent = 204 == status;
+    this.badRequest = 400 == status;
+    this.unauthorized = 401 == status;
+    this.notAcceptable = 406 == status;
+    this.forbidden = 403 == status;
+    this.notFound = 404 == status;
+};
+
+},{"./utils":14}],14:[function(require,module,exports){
+'use strict';
+
+/**
+ * Return the mime type for the given `str`.
+ *
+ * @param {String} str
+ * @return {String}
+ * @api private
+ */
+
+exports.type = function(str){
+  return str.split(/ *; */).shift();
+};
+
+/**
+ * Return header field parameters.
+ *
+ * @param {String} str
+ * @return {Object}
+ * @api private
+ */
+
+exports.params = function(str){
+  return str.split(/ *; */).reduce(function(obj, str){
+    var parts = str.split(/ *= */);
+    var key = parts.shift();
+    var val = parts.shift();
+
+    if (key && val) obj[key] = val;
+    return obj;
+  }, {});
+};
+
+/**
+ * Parse Link header fields.
+ *
+ * @param {String} str
+ * @return {Object}
+ * @api private
+ */
+
+exports.parseLinks = function(str){
+  return str.split(/ *, */).reduce(function(obj, str){
+    var parts = str.split(/ *; */);
+    var url = parts[0].slice(1, -1);
+    var rel = parts[1].split(/ *= */)[1].slice(1, -1);
+    obj[rel] = url;
+    return obj;
+  }, {});
+};
+
+/**
+ * Strip content related fields from `header`.
+ *
+ * @param {Object} header
+ * @return {Object} header
+ * @api private
+ */
+
+exports.cleanHeader = function(header, changesOrigin){
+  delete header['content-type'];
+  delete header['content-length'];
+  delete header['transfer-encoding'];
+  delete header['host'];
+  // secuirty
+  if (changesOrigin) {
+    delete header['authorization'];
+    delete header['cookie'];
+  }
+  return header;
+};
+
+},{}],15:[function(require,module,exports){
+(function (global){
+
+/**
+ * Module exports.
+ */
+
+module.exports = deprecate;
+
+/**
+ * Mark that a method should not be used.
+ * Returns a modified function which warns once by default.
+ *
+ * If `localStorage.noDeprecation = true` is set, then it is a no-op.
+ *
+ * If `localStorage.throwDeprecation = true` is set, then deprecated functions
+ * will throw an Error when invoked.
+ *
+ * If `localStorage.traceDeprecation = true` is set, then deprecated functions
+ * will invoke `console.trace()` instead of `console.error()`.
+ *
+ * @param {Function} fn - the function to deprecate
+ * @param {String} msg - the string to print to the console when `fn` is invoked
+ * @returns {Function} a new "deprecated" version of `fn`
+ * @api public
+ */
+
+function deprecate (fn, msg) {
+  if (config('noDeprecation')) {
+    return fn;
+  }
+
+  var warned = false;
+  function deprecated() {
+    if (!warned) {
+      if (config('throwDeprecation')) {
+        throw new Error(msg);
+      } else if (config('traceDeprecation')) {
+        console.trace(msg);
+      } else {
+        console.warn(msg);
+      }
+      warned = true;
+    }
+    return fn.apply(this, arguments);
+  }
+
+  return deprecated;
+}
+
+/**
+ * Checks `localStorage` for boolean values for the given `name`.
+ *
+ * @param {String} name
+ * @returns {Boolean}
+ * @api private
+ */
+
+function config (name) {
+  // accessing global.localStorage can trigger a DOMException in sandboxed iframes
+  try {
+    if (!global.localStorage) return false;
+  } catch (_) {
+    return false;
+  }
+  var val = global.localStorage[name];
+  if (null == val) return false;
+  return String(val).toLowerCase() === 'true';
+}
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],16:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -3142,14 +3786,14 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],15:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],16:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -3739,7 +4383,7 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":15,"_process":8,"inherits":14}],17:[function(require,module,exports){
+},{"./support/isBuffer":17,"_process":8,"inherits":16}],19:[function(require,module,exports){
 'use strict';
 
 var btoa = require('btoa-lite');
@@ -3837,72 +4481,12 @@ Client.prototype.paginate = function(expression, params) {
 };
 
 /**
- * Issues a HTTP `GET` request via the legacy REST API.
- * See the [docs](https://fauna.com/documentation/rest).
- * @deprecated Use the {@link Client#query} API where possible.
- * @param {(string|Ref)} path Path relative the `domain` from the constructor.
- * @param {Object} query URL parameters.
- * @return {external:Promise<Object>} FaunaDB response object.
- */
-Client.prototype.get = function (path, query) {
-  query = defaults(query, null);
-  return this._execute('GET', path, null, query);
-};
-
-/**
- * Issues a HTTP `POST` request via the legacy REST API.
- * See the [docs](https://fauna.com/documentation/rest).
- * @deprecated Use the {@link Client#query} API where possible.
- * @param {(string|Ref)} path Path relative to the `domain` from the constructor.
- * @param {Object} data Object to be converted to request JSON.
- * @return {external:Promise<Object>} FaunaDB response object.
- */
-Client.prototype.post = function (path, data) {
-  return this._execute('POST', path, data);
-};
-
-/**
- * Issues a HTTP `PUT` request via the legacy REST API.
- * See the [docs](https://fauna.com/documentation/rest).
- * @deprecated Use the {@link Client#query} API where possible.
- * @param {(string|Ref)} path Path relative to the `domain` from the constructor.
- * @param {Object} data Object to be converted to the request JSON.
- * @return {external:Promise<Object>} FaunaDB response object.
- */
-Client.prototype.put = function (path, data) {
-  return this._execute('PUT', path, data);
-};
-
-/**
- * Issues a HTTP `PATCH` request via the legacy REST API.
- * See the [docs](https://fauna.com/documentation/rest).
- * @deprecated Use the {@link Client#query} API where possible.
- * @param {(string|Ref)} path Path relative to the `domain` from the constructor.
- * @param {Object} data Object to be converted to the request JSON.
- * @return {external:Promise<Object>} FaunaDB response object.
- */
-Client.prototype.patch = function (path, data) {
-  return this._execute('PATCH', path, data);
-};
-
-/**
- * Issues a HTTP `DELETE` request via the legacy REST API.
- * See the [docs](https://fauna.com/documentation/rest).
- * @deprecated Use the {@link Client#query} API where possible.
- * @param {(string|Ref)} path Path relative to the `domain` from the constructor.
- * @return {external:Promise<Object>} FaunaDB response object.
- */
-Client.prototype.delete = function (path) {
-  return this._execute('DELETE', path);
-};
-
-/**
  * Sends a `ping` request to FaunaDB.
  * See the [docs](https://fauna.com/documentation/rest#other).
  * @return {external:Promise<string>} Ping response.
  */
 Client.prototype.ping = function (scope, timeout) {
-  return this.get('ping', { scope: scope, timeout: timeout });
+  return this._execute('GET', 'ping', null, { scope: scope, timeout: timeout });
 };
 
 Client.prototype._execute = function (action, path, data, query) {
@@ -3949,6 +4533,8 @@ Client.prototype._performRequest = function (action, path, data, query) {
     rq.set('Authorization', secretHeader(this._secret));
   }
 
+  rq.set('X-FaunaDB-API-Version', '2.1');
+
   rq.timeout(this._timeout);
 
   return new Promise(function (resolve, reject) {
@@ -3981,7 +4567,7 @@ function secretHeader(secret) {
 
 module.exports = Client;
 
-},{"./PageHelper":19,"./RequestResult":20,"./_json":21,"./_util":22,"./errors":24,"./query":25,"./values":26,"btoa-lite":3,"es6-promise":5,"superagent":10}],18:[function(require,module,exports){
+},{"./PageHelper":21,"./RequestResult":22,"./_json":23,"./_util":24,"./errors":26,"./query":27,"./values":28,"btoa-lite":3,"es6-promise":5,"superagent":10}],20:[function(require,module,exports){
 'use strict';
 
 /**
@@ -4000,7 +4586,7 @@ Expr.prototype.toJSON = function() {
 };
 
 module.exports = Expr;
-},{}],19:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 'use strict';
 
 var query = require('./query');
@@ -4236,7 +4822,7 @@ PageHelper.prototype._clone = function() {
 
 module.exports = PageHelper;
 
-},{"./query":25,"es6-promise":5,"object-assign":7}],20:[function(require,module,exports){
+},{"./query":27,"es6-promise":5,"object-assign":7}],22:[function(require,module,exports){
 'use strict';
 
 /**
@@ -4328,7 +4914,7 @@ Object.defineProperty(RequestResult.prototype, 'timeTaken', { get: function() {
 
 module.exports = RequestResult;
 
-},{}],21:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 'use strict';
 
 var values = require('./values');
@@ -4351,7 +4937,16 @@ function json_parse(_, val) {
   if (typeof val !== 'object' || val === null) {
     return val;
   } else if ('@ref' in val) {
-    return new values.Ref(val['@ref']);
+    var ref = val['@ref'];
+
+    if (!('class' in ref) && !('database' in ref)) {
+      return values.Native.fromName(ref['id']);
+    }
+
+    var cls = json_parse('class', ref['class']);
+    var db = json_parse('database', ref['database']);
+
+    return new values.Ref(ref['id'], cls, db);
   } else if ('@obj' in val) {
     return val['@obj'];
   } else if ('@set' in val) {
@@ -4362,6 +4957,8 @@ function json_parse(_, val) {
     return new values.FaunaDate(val['@date']);
   } else if ('@bytes' in val) {
     return new values.Bytes(val['@bytes']);
+  } else if ('@query' in val) {
+    return new values.Query(val['@query']);
   } else {
     return val;
   }
@@ -4372,7 +4969,7 @@ module.exports = {
   parseJSON: parseJSON
 };
 
-},{"./values":26}],22:[function(require,module,exports){
+},{"./values":28}],24:[function(require,module,exports){
 'use strict';
 
 /**
@@ -4421,7 +5018,7 @@ module.exports = {
   removeUndefinedValues: removeUndefinedValues
 };
 
-},{}],23:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 'use strict';
 
 var json = require('./_json');
@@ -4541,7 +5138,7 @@ module.exports = {
   logger: logger,
   showRequestResult: showRequestResult
 };
-},{"./_json":21}],24:[function(require,module,exports){
+},{"./_json":23}],26:[function(require,module,exports){
 'use strict';
 
 var util = require('util');
@@ -4795,10 +5392,11 @@ module.exports = {
   UnavailableError: UnavailableError
 };
 
-},{"util":16}],25:[function(require,module,exports){
+},{"util":18}],27:[function(require,module,exports){
 'use strict';
 
 var annotate = require('fn-annotate');
+var deprecate = require('util-deprecate');
 var Expr = require('./Expr');
 var errors = require('./errors');
 var values = require('./values');
@@ -4824,22 +5422,35 @@ var objectAssign = require('object-assign');
 // Type helpers
 
 /**
- * If one parameter is provided, constructs a literal Ref value. If two are provided,
- * constructs a Ref() function that, when evaluated, returns a Ref value.
+ * If one parameter is provided, constructs a literal Ref value.
+ * The string `classes/widget/123` will be equivalent to `new values.Ref('123', new values.Ref('widget', values.Native.CLASSES))`
+ *
+ * If two are provided, constructs a Ref() function that, when evaluated, returns a Ref value.
  *
  * @param {string|module:query~ExprArg} ref
- * @param {?module:query~ExprArg} id
+ * @param {module:query~ExprArg} [id]
  * @return {Expr}
  */
 function Ref() {
   arity.between(1, 2, arguments);
   switch (arguments.length) {
-    case 1: return new values.Ref(arguments[0]);
+    case 1: return new Expr({ '@ref': wrap(arguments[0]) });
     case 2: return new Expr({ ref: wrap(arguments[0]), id: wrap(arguments[1]) });
   }
 }
 
 // Basic forms
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#basic_forms).
+ *
+ * @param {module:query~ExprArg} msg
+ * @return {Expr}
+ * */
+function Abort(msg) {
+  arity.exact(1, arguments);
+  return new Expr({ abort: wrap(msg) });
+}
 
 /**
  * See the [docs](https://fauna.com/documentation/queries#basic_forms).
@@ -4915,7 +5526,7 @@ function Do() {
 var objectFunction = function(fields) {
   arity.exact(1, arguments);
   return new Expr({ object: wrapValues(fields) });
-}
+};
 
 /**
  * See the [docs](https://fauna.com/documentation/queries#basic_forms).
@@ -4986,6 +5597,44 @@ function _lambdaFunc(func) {
  */
 function _lambdaExpr(var_name, expr) {
   return new Expr({ lambda: wrap(var_name), expr: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#basic_forms).
+ *
+ * Invokes a given function passing in the provided arguments
+ *
+ * ```
+ * Call(Ref("functions/a_function"), 1, 2)
+ * ```
+ *
+ * @param {module:query~ExprArg} ref
+ * @param {...module:query~ExprArg} args
+ * @return {Expr}
+ * */
+function Call(ref) {
+  arity.min(1, arguments);
+  var args = argsToArray(arguments);
+  args.shift();
+  return new Expr({ call: wrap(ref), arguments: varargs(args) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#basic_forms).
+ *
+ * Constructs a `@query` type using the Lambda() or a function.
+ *
+ * ```
+ * Query(Lambda(['a', 'b'], Add(Var('a'), Var('b'))))
+ * Query(function (a, b) { return Add(a, b) })
+ * ```
+ *
+ * @param {module:query~ExprArg|function} lambda
+ * @return {Expr}
+ * */
+function Query(lambda) {
+  arity.exact(1, arguments);
+  return new Expr({ query: wrap(lambda) });
 }
 
 // Collection functions
@@ -5250,7 +5899,40 @@ function CreateKey(params) {
   return new Expr({ create_key: wrap(params) });
 }
 
+/**
+ * See the [docs](https://fauna.com/documentation/queries#write_functions).
+ *
+ * @param {module:query~ExprArg} params
+ * @return {Expr}
+ */
+function CreateFunction(params) {
+  arity.exact(1, arguments);
+  return new Expr({ create_function: wrap(params) });
+}
+
 // Sets
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#sets).
+ *
+ * @param {module:query~ExprArg} ref
+ * @return {Expr}
+ */
+function Singleton(ref) {
+  arity.exact(1, arguments);
+  return new Expr({ singleton: wrap(ref) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#sets).
+ *
+ * @param {module:query~ExprArg} ref_set
+ * @return {Expr}
+ */
+function Events(ref_set) {
+  arity.exact(1, arguments);
+  return new Expr({ events: wrap(ref_set) });
+}
 
 /**
  * See the [docs](https://fauna.com/documentation/queries#sets).
@@ -5359,6 +6041,26 @@ function Identify(ref, password) {
   return new Expr({ identify: wrap(ref), password: wrap(password) });
 }
 
+/**
+ * See the [docs](https://fauna.com/documentation/queries#auth_functions).
+ *
+ * @return {Expr}
+ */
+function Identity() {
+  arity.exact(0, arguments);
+  return new Expr({ identity: null });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#auth_functions).
+ *
+ * @return {Expr}
+ */
+function HasIdentity() {
+  arity.exact(0, arguments);
+  return new Expr({ has_identity: null });
+}
+
 // String functions
 
 /**
@@ -5378,11 +6080,12 @@ function Concat(strings, separator) {
  * See the [docs](https://fauna.com/documentation/queries#string_functions).
  *
  * @param {module:query~ExprArg} string
+ * @param {module:query~ExprArg} normalizer
  * @return {Expr}
  */
-function Casefold(string) {
-  arity.exact(1, arguments);
-  return new Expr({ casefold: wrap(string) });
+function Casefold(string, normalizer) {
+  arity.min(1, arguments);
+  return new Expr(params({ casefold: wrap(string) }, { normalizer: wrap(normalizer) }));
 }
 
 // Time and date functions
@@ -5425,6 +6128,7 @@ function Date(string) {
 /**
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
+ * @deprecated use NewId instead
  * @return {Expr}
  */
 function NextId() {
@@ -5435,34 +6139,162 @@ function NextId() {
 /**
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
- * @param {module:query~ExprArg} name
  * @return {Expr}
  */
-function Database(name) {
-  arity.exact(1, arguments);
-  return new Expr({ database: wrap(name) });
+function NewId() {
+  arity.exact(0, arguments);
+  return new Expr({ new_id: null });
 }
 
 /**
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {module:query~ExprArg} name
+ * @param {module:query~ExprArg} [scope]
  * @return {Expr}
  */
-function Index(name) {
-  arity.exact(1, arguments);
-  return new Expr({ index: wrap(name) });
+function Database(name, scope) {
+  arity.between(1, 2, arguments);
+  switch(arguments.length) {
+    case 1: return new Expr({ database: wrap(name) });
+    case 2: return new Expr({ database: wrap(name), scope: wrap(scope) });
+  }
 }
 
 /**
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {module:query~ExprArg} name
+ * @param {module:query~ExprArg} [scope]
  * @return {Expr}
  */
-function Class(name) {
-  arity.exact(1, arguments);
-  return new Expr({ class: wrap(name) });
+function Index(name, scope) {
+  arity.between(1, 2, arguments);
+  switch(arguments.length) {
+    case 1: return new Expr({ index: wrap(name) });
+    case 2: return new Expr({ index: wrap(name), scope: wrap(scope) });
+  }
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ *
+ * @param {module:query~ExprArg} name
+ * @param {module:query~ExprArg} [scope]
+ * @return {Expr}
+ */
+function Class(name, scope) {
+  arity.between(1, 2, arguments);
+  switch(arguments.length) {
+    case 1: return new Expr({ class: wrap(name) });
+    case 2: return new Expr({ class: wrap(name), scope: wrap(scope) });
+  }
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ *
+ * @param {module:query~ExprArg} name
+ * @param {module:query~ExprArg} [scope]
+ * @return {Expr}
+ */
+function FunctionFn(name, scope) {
+  arity.between(1, 2, arguments);
+  switch(arguments.length) {
+    case 1: return new Expr({ function: wrap(name) });
+    case 2: return new Expr({ function: wrap(name), scope: wrap(scope) });
+  }
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ *
+ * Constructs a `classes` function that, when evaluated, returns a Ref value.
+ *
+ * @param {module:query~ExprArg} [scope]
+ * @return {Expr}
+ */
+function Classes(scope) {
+  arity.max(1, arguments);
+  return new Expr({ classes: wrap(scope) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ *
+ * Constructs a `databases` functions that, when evaluated, returns a Ref value.
+ *
+ * @param {module:query~ExprArg} [scope]
+ * @return {Expr}
+ */
+function Databases(scope) {
+  arity.max(1, arguments);
+  return new Expr({ databases: wrap(scope) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ *
+ * Constructs an `indexes` function that, when evaluated, returns a Ref value.
+ *
+ * @param {module:query~ExprArg} [scope]
+ * @return {Expr}
+ */
+function Indexes(scope) {
+  arity.max(1, arguments);
+  return new Expr({ indexes: wrap(scope) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ *
+ * Constructs a `functions` function that, when evaluated, returns a Ref value.
+ *
+ * @param {module:query~ExprArg} [scope]
+ * @return {Expr}
+ */
+function Functions(scope) {
+  arity.max(1, arguments);
+  return new Expr({ functions: wrap(scope) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ *
+ * Constructs a `keys` function that, when evaluated, returns a Ref value.
+ *
+ * @param {module:query~ExprArg} [scope]
+ * @return {Expr}
+ */
+function Keys(scope) {
+  arity.max(1, arguments);
+  return new Expr({ keys: wrap(scope) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ *
+ * Constructs a `tokens` function that, when evaluated, returns a Ref value.
+ *
+ * @param {module:query~ExprArg} [scope]
+ * @return {Expr}
+ */
+function Tokens(scope) {
+  arity.max(1, arguments);
+  return new Expr({ tokens: wrap(scope) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ *
+ * Constructs a `credentials` functions that, when evaluated, returns a Ref value.
+ *
+ * @param {module:query~ExprArg} [scope]
+ * @return {Expr}
+ */
+function Credentials(scope) {
+  arity.max(1, arguments);
+  return new Expr({ credentials: wrap(scope) });
 }
 
 /**
@@ -5503,6 +6335,18 @@ function Select(path, from, _default) {
     exprObj.default = wrap(_default);
   }
   return new Expr(exprObj);
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ *
+ * @param {module:query~ExprArg} path
+ * @param {module:query~ExprArg} from
+ * @return {Expr}
+ */
+function SelectAll(path, from) {
+  arity.exact(2, arguments);
+  return new Expr({ select_all: wrap(path), from: wrap(from) });
 }
 
 /**
@@ -5753,6 +6597,7 @@ function wrapValues(obj) {
 
 module.exports = {
   Ref: Ref,
+  Abort: Abort,
   At: At,
   Let: Let,
   Var: Var,
@@ -5760,6 +6605,8 @@ module.exports = {
   Do: Do,
   Object: objectFunction,
   Lambda: Lambda,
+  Call: Call,
+  Query: Query,
   Map: Map,
   Foreach: Foreach,
   Filter: Filter,
@@ -5781,6 +6628,9 @@ module.exports = {
   CreateDatabase: CreateDatabase,
   CreateIndex: CreateIndex,
   CreateKey: CreateKey,
+  CreateFunction: CreateFunction,
+  Singleton: Singleton,
+  Events: Events,
   Match: Match,
   Union: Union,
   Intersection: Intersection,
@@ -5790,18 +6640,30 @@ module.exports = {
   Login: Login,
   Logout: Logout,
   Identify: Identify,
+  Identity: Identity,
+  HasIdentity: HasIdentity,
   Concat: Concat,
   Casefold: Casefold,
   Time: Time,
   Epoch: Epoch,
   Date: Date,
-  NextId: NextId,
+  NextId: deprecate(NextId, 'NextId() is deprecated, use NewId() instead'),
+  NewId: NewId,
   Database: Database,
   Index: Index,
   Class: Class,
+  Function: FunctionFn,
+  Classes: Classes,
+  Databases: Databases,
+  Indexes: Indexes,
+  Functions: Functions,
+  Keys: Keys,
+  Tokens: Tokens,
+  Credentials: Credentials,
   Equals: Equals,
   Contains: Contains,
   Select: Select,
+  SelectAll: SelectAll,
   Add: Add,
   Multiply: Multiply,
   Subtract: Subtract,
@@ -5817,7 +6679,7 @@ module.exports = {
   wrap: wrap
 };
 
-},{"./Expr":18,"./errors":24,"./values":26,"fn-annotate":6,"object-assign":7}],26:[function(require,module,exports){
+},{"./Expr":20,"./errors":26,"./values":28,"fn-annotate":6,"object-assign":7,"util-deprecate":15}],28:[function(require,module,exports){
 'use strict';
 
 var base64 = require('base64-js');
@@ -5831,7 +6693,8 @@ var util = require('util');
  *
  * Instances of these classes will be returned in responses if the response object
  * contains these values. For example, a FaunaDB response containing
- *`{ "@ref": "classes/frogs/123" }` will be returned as `new Ref("classes/frogs/123")`.
+ *`{ "@ref": { "id": "123", "class": { "@ref": { "id": "frogs", "class": { "@ref": { "id": "classes" } } } } } }
+ * will be returned as `new values.Ref("123", new values.Ref("frogs", values.Native.CLASSES))`.
  *
  * See the [FaunaDB Query API Documentation](https://fauna.com/documentation/queries#values)
  * for more information.
@@ -5854,62 +6717,54 @@ util.inherits(Value, Expr);
  * FaunaDB ref.
  * See the [docs](https://fauna.com/documentation/queries#values-special_types).
  *
- * A simple wrapper around a string which can be extracted using `ref.value`.
- * Queries that require a Ref will not work if you just pass in a string.
- *
- * You can create a Ref from a string, such as `new Ref('databases/prydain')`.
- * You can also call `new Ref('databases', 'prydain')` or `new Ref(new Ref('databases'), 'prydain').
- *
- * @param {string|Ref} valueOrParent
- *   The string value of the Ref, or the parent portion of the Ref if child is specified.
- * @param {?string} id
- *   The child portion of the ref.
+ * @param {string} id
+ *   The id portion of the ref.
+ * @param {Ref} [clazz]
+ *   The class portion of the ref.
+ * @param {Ref} [database]
+ *   The database portion of the ref.
  *
  * @extends module:values~Value
  * @constructor
  */
-function Ref() {
-  var parts = Array.prototype.slice.call(arguments);
-  /**
-   * The string value of the ref.
-   *
-   * @type {string}
-   */
-  this.value = parts.join('/');
+function Ref(id, clazz, database) {
+  if (!id) throw new errors.InvalidValue('id cannot be null or undefined');
+
+  this.value = { id: id };
+  if (clazz) this.value['class'] = clazz;
+  if (database) this.value['database'] = database;
 }
 
 util.inherits(Ref, Value);
 
 /**
  * Gets the class part out of the Ref.
- * This is done by removing the id.
- * So `new Ref('a', 'b/c').class` will be `new Ref('a/b')`.
  *
  * @member {string}
  * @name module:values~Ref#class
  */
 Object.defineProperty(Ref.prototype, 'class', { get: function() {
-  var parts = this.value.split('/');
-  if (parts.length === 1) {
-    return this;
-  } else {
-    return new Ref(parts.slice(0, parts.length - 1).join('/'));
-  }
+  return this.value['class'];
 } });
 
 /**
- * Removes the class part of the Ref, leaving only the id.
- * this is everything after the last `/`.
+ * Gets the database part out of the Ref.
  *
- * @member {string}
+ * @member {Ref}
+ * @name module:values~Ref#database
+ */
+Object.defineProperty(Ref.prototype, 'database', { get: function() {
+  return this.value['database'];
+} });
+
+/**
+ * Gets the id part out of the Ref.
+ *
+ * @member {Ref}
  * @name module:values~Ref#id
  */
 Object.defineProperty(Ref.prototype, 'id', { get: function() {
-  var parts = this.value.split('/');
-  if (parts.length === 1) {
-    throw new errors.InvalidValue('The Ref does not have an id.');
-  }
-  return parts[parts.length - 1];
+  return this.value['id'];
 } });
 
 /** @ignore */
@@ -5919,7 +6774,9 @@ Ref.prototype.toJSON = function() {
 
 /** @ignore */
 Ref.prototype.toString = function() {
-  return this.value;
+  var cls = this.class !== undefined ? ', class=' + this.class.toString() : '';
+  var db = this.database !== undefined ? ' database=' +  this.database.toString() : '';
+  return 'Ref(id=' + this.id + cls + db + ')';
 };
 
 /** @ignore */
@@ -5929,7 +6786,9 @@ Ref.prototype.valueOf = function() {
 
 /** @ignore */
 Ref.prototype.inspect = function() {
-  return 'Ref(' + JSON.stringify(this.value) + ')';
+  var cls = this.class !== undefined ? ', class=' + this.class.inspect() : '';
+  var db = this.database !== undefined ? ', database=' +  this.database.inspect() : '';
+  return 'Ref(id=' + this.id + cls + db + ')';
 };
 
 /**
@@ -5939,6 +6798,25 @@ Ref.prototype.inspect = function() {
  */
 Ref.prototype.equals = function(other) {
   return other instanceof Ref && this.value === other.value;
+};
+
+var Native = {
+  CLASSES: new Ref('classes'),
+  INDEXES: new Ref('indexes'),
+  DATABASES: new Ref('databases'),
+  FUNCTIONS: new Ref('functions'),
+  KEYS: new Ref('keys')
+};
+
+Native.fromName = function(name) {
+  switch(name) {
+    case 'classes': return Native.CLASSES;
+    case 'indexes': return Native.INDEXES;
+    case 'databases': return Native.DATABASES;
+    case 'functions': return Native.FUNCTIONS;
+    case 'keys': return Native.KEYS;
+  }
+  return new Ref(name);
 };
 
 /**
@@ -6069,14 +6947,38 @@ Bytes.prototype.toJSON = function()  {
   return { '@bytes': base64.fromByteArray(this.value) };
 };
 
+/** FaunaDB query. See the [docs](https://fauna.com/documentation/queries#values-special_types).
+ *
+ * @param {any} value
+ * @extends module:values~Value
+ * @constructor
+ */
+function Query(value) {
+  this.value = value;
+}
+
+util.inherits(Query, Value);
+
+/** @ignore */
+Query.prototype.inspect = function() {
+  return 'Query("' + this.value + '")';
+};
+
+/** @ignore */
+Query.prototype.toJSON = function()  {
+  return { '@query': this.value };
+};
+
 module.exports = {
   Value: Value,
   Ref: Ref,
+  Native: Native,
   SetRef: SetRef,
   FaunaTime: FaunaTime,
   FaunaDate: FaunaDate,
-  Bytes: Bytes
+  Bytes: Bytes,
+  Query: Query
 };
 
-},{"./Expr":18,"./errors":24,"base64-js":2,"util":16}]},{},[1])(1)
+},{"./Expr":20,"./errors":26,"base64-js":2,"util":18}]},{},[1])(1)
 });
