@@ -1,4 +1,4 @@
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.faunadb = f()}})(function(){var define,module,exports;return (function(){function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s}return e})()({1:[function(require,module,exports){
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.faunadb = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 /**
  * An ES6 compatible promise. This driver depends on the {@link https://github.com/stefanpenner/es6-promise|es6-promise polyfill}.
  * @external Promise
@@ -39,65 +39,97 @@ for (var i = 0, len = code.length; i < len; ++i) {
 revLookup['-'.charCodeAt(0)] = 62
 revLookup['_'.charCodeAt(0)] = 63
 
-function placeHoldersCount (b64) {
+function getLens (b64) {
   var len = b64.length
+
   if (len % 4 > 0) {
     throw new Error('Invalid string. Length must be a multiple of 4')
   }
 
-  // the number of equal signs (place holders)
-  // if there are two placeholders, than the two characters before it
-  // represent one byte
-  // if there is only one, then the three characters before it represent 2 bytes
-  // this is just a cheap hack to not do indexOf twice
-  return b64[len - 2] === '=' ? 2 : b64[len - 1] === '=' ? 1 : 0
+  // Trim off extra bytes after placeholder bytes are found
+  // See: https://github.com/beatgammit/base64-js/issues/42
+  var validLen = b64.indexOf('=')
+  if (validLen === -1) validLen = len
+
+  var placeHoldersLen = validLen === len
+    ? 0
+    : 4 - (validLen % 4)
+
+  return [validLen, placeHoldersLen]
 }
 
+// base64 is 4/3 + up to two characters of the original data
 function byteLength (b64) {
-  // base64 is 4/3 + up to two characters of the original data
-  return (b64.length * 3 / 4) - placeHoldersCount(b64)
+  var lens = getLens(b64)
+  var validLen = lens[0]
+  var placeHoldersLen = lens[1]
+  return ((validLen + placeHoldersLen) * 3 / 4) - placeHoldersLen
+}
+
+function _byteLength (b64, validLen, placeHoldersLen) {
+  return ((validLen + placeHoldersLen) * 3 / 4) - placeHoldersLen
 }
 
 function toByteArray (b64) {
-  var i, l, tmp, placeHolders, arr
-  var len = b64.length
-  placeHolders = placeHoldersCount(b64)
+  var tmp
+  var lens = getLens(b64)
+  var validLen = lens[0]
+  var placeHoldersLen = lens[1]
 
-  arr = new Arr((len * 3 / 4) - placeHolders)
+  var arr = new Arr(_byteLength(b64, validLen, placeHoldersLen))
+
+  var curByte = 0
 
   // if there are placeholders, only get up to the last complete 4 chars
-  l = placeHolders > 0 ? len - 4 : len
+  var len = placeHoldersLen > 0
+    ? validLen - 4
+    : validLen
 
-  var L = 0
-
-  for (i = 0; i < l; i += 4) {
-    tmp = (revLookup[b64.charCodeAt(i)] << 18) | (revLookup[b64.charCodeAt(i + 1)] << 12) | (revLookup[b64.charCodeAt(i + 2)] << 6) | revLookup[b64.charCodeAt(i + 3)]
-    arr[L++] = (tmp >> 16) & 0xFF
-    arr[L++] = (tmp >> 8) & 0xFF
-    arr[L++] = tmp & 0xFF
+  for (var i = 0; i < len; i += 4) {
+    tmp =
+      (revLookup[b64.charCodeAt(i)] << 18) |
+      (revLookup[b64.charCodeAt(i + 1)] << 12) |
+      (revLookup[b64.charCodeAt(i + 2)] << 6) |
+      revLookup[b64.charCodeAt(i + 3)]
+    arr[curByte++] = (tmp >> 16) & 0xFF
+    arr[curByte++] = (tmp >> 8) & 0xFF
+    arr[curByte++] = tmp & 0xFF
   }
 
-  if (placeHolders === 2) {
-    tmp = (revLookup[b64.charCodeAt(i)] << 2) | (revLookup[b64.charCodeAt(i + 1)] >> 4)
-    arr[L++] = tmp & 0xFF
-  } else if (placeHolders === 1) {
-    tmp = (revLookup[b64.charCodeAt(i)] << 10) | (revLookup[b64.charCodeAt(i + 1)] << 4) | (revLookup[b64.charCodeAt(i + 2)] >> 2)
-    arr[L++] = (tmp >> 8) & 0xFF
-    arr[L++] = tmp & 0xFF
+  if (placeHoldersLen === 2) {
+    tmp =
+      (revLookup[b64.charCodeAt(i)] << 2) |
+      (revLookup[b64.charCodeAt(i + 1)] >> 4)
+    arr[curByte++] = tmp & 0xFF
+  }
+
+  if (placeHoldersLen === 1) {
+    tmp =
+      (revLookup[b64.charCodeAt(i)] << 10) |
+      (revLookup[b64.charCodeAt(i + 1)] << 4) |
+      (revLookup[b64.charCodeAt(i + 2)] >> 2)
+    arr[curByte++] = (tmp >> 8) & 0xFF
+    arr[curByte++] = tmp & 0xFF
   }
 
   return arr
 }
 
 function tripletToBase64 (num) {
-  return lookup[num >> 18 & 0x3F] + lookup[num >> 12 & 0x3F] + lookup[num >> 6 & 0x3F] + lookup[num & 0x3F]
+  return lookup[num >> 18 & 0x3F] +
+    lookup[num >> 12 & 0x3F] +
+    lookup[num >> 6 & 0x3F] +
+    lookup[num & 0x3F]
 }
 
 function encodeChunk (uint8, start, end) {
   var tmp
   var output = []
   for (var i = start; i < end; i += 3) {
-    tmp = ((uint8[i] << 16) & 0xFF0000) + ((uint8[i + 1] << 8) & 0xFF00) + (uint8[i + 2] & 0xFF)
+    tmp =
+      ((uint8[i] << 16) & 0xFF0000) +
+      ((uint8[i + 1] << 8) & 0xFF00) +
+      (uint8[i + 2] & 0xFF)
     output.push(tripletToBase64(tmp))
   }
   return output.join('')
@@ -107,30 +139,33 @@ function fromByteArray (uint8) {
   var tmp
   var len = uint8.length
   var extraBytes = len % 3 // if we have 1 byte left, pad 2 bytes
-  var output = ''
   var parts = []
   var maxChunkLength = 16383 // must be multiple of 3
 
   // go through the array every three bytes, we'll deal with trailing stuff later
   for (var i = 0, len2 = len - extraBytes; i < len2; i += maxChunkLength) {
-    parts.push(encodeChunk(uint8, i, (i + maxChunkLength) > len2 ? len2 : (i + maxChunkLength)))
+    parts.push(encodeChunk(
+      uint8, i, (i + maxChunkLength) > len2 ? len2 : (i + maxChunkLength)
+    ))
   }
 
   // pad the end with zeros, but make sure to not forget the extra bytes
   if (extraBytes === 1) {
     tmp = uint8[len - 1]
-    output += lookup[tmp >> 2]
-    output += lookup[(tmp << 4) & 0x3F]
-    output += '=='
+    parts.push(
+      lookup[tmp >> 2] +
+      lookup[(tmp << 4) & 0x3F] +
+      '=='
+    )
   } else if (extraBytes === 2) {
-    tmp = (uint8[len - 2] << 8) + (uint8[len - 1])
-    output += lookup[tmp >> 10]
-    output += lookup[(tmp >> 4) & 0x3F]
-    output += lookup[(tmp << 2) & 0x3F]
-    output += '='
+    tmp = (uint8[len - 2] << 8) + uint8[len - 1]
+    parts.push(
+      lookup[tmp >> 10] +
+      lookup[(tmp >> 4) & 0x3F] +
+      lookup[(tmp << 2) & 0x3F] +
+      '='
+    )
   }
-
-  parts.push(output)
 
   return parts.join('')
 }
@@ -2035,7 +2070,7 @@ request.types = {
 
 request.serialize = {
   'application/x-www-form-urlencoded': serialize,
-  'application/json': JSON.stringify,
+  'application/json': JSON.stringify
 };
 
 /**
@@ -2049,7 +2084,7 @@ request.serialize = {
 
 request.parse = {
   'application/x-www-form-urlencoded': parseString,
-  'application/json': JSON.parse,
+  'application/json': JSON.parse
 };
 
 /**
@@ -3032,7 +3067,7 @@ RequestBase.prototype.then = function then(resolve, reject) {
   return this._fullfilledPromise.then(resolve, reject);
 };
 
-RequestBase.prototype.catch = function(cb) {
+RequestBase.prototype['catch'] = function(cb) {
   return this.then(undefined, cb);
 };
 
@@ -3608,6 +3643,7 @@ ResponseBase.prototype._setStatusProperties = function(status){
         : false;
 
     // sugar
+    this.created = 201 == status;
     this.accepted = 202 == status;
     this.noContent = 204 == status;
     this.badRequest = 400 == status;
@@ -3615,6 +3651,7 @@ ResponseBase.prototype._setStatusProperties = function(status){
     this.notAcceptable = 406 == status;
     this.forbidden = 403 == status;
     this.notFound = 404 == status;
+    this.unprocessableEntity = 422 == status;
 };
 
 },{"./utils":14}],14:[function(require,module,exports){
@@ -4507,7 +4544,7 @@ Client.prototype._execute = function (action, path, data, query) {
     var responseObject = json.parseJSON(response.text);
     var requestResult = new RequestResult(
       self,
-      action, path, query, data,
+      action, path, query, JSON.stringify(data),
       response.text, responseObject, response.status, response.header,
       startTime, endTime);
 
@@ -5144,17 +5181,19 @@ module.exports = {
 var util = require('util');
 
 /**
- * @module errors
- */
-
-/**
- * The base exception type for all FaunaDB errors. Errors can originate from
- * the client (e.g. bad method parameters), or, from the FaunaDB Server (e.g.
+ * FaunaDB error types. Request errors can originate from
+ * the client (e.g. bad method parameters) or from the FaunaDB Server (e.g.
  * invalid queries, timeouts.) Server errors will subclass
  * {@link module:errors~FaunaHTTPError}.
  *
  * See the [FaunaDB Error Documentation](https://fauna.com/documentation/dev#errors)
  * for more information on server errors.
+ *
+ * @module errors
+ */
+
+/**
+ * The base exception type for all FaunaDB errors.
  *
  * @param {string} message
  * @extends Error
@@ -5427,8 +5466,10 @@ var objectAssign = require('object-assign');
  *
  * If two are provided, constructs a Ref() function that, when evaluated, returns a Ref value.
  *
- * @param {string|module:query~ExprArg} ref
+ * @param {string|module:query~ExprArg} ref|cls
+ *   Alone, the ref in path form. Combined with `id`, must be a class ref.
  * @param {module:query~ExprArg} [id]
+ *   A numeric id of the given class.
  * @return {Expr}
  */
 function Ref() {
@@ -5445,6 +5486,7 @@ function Ref() {
  * See the [docs](https://fauna.com/documentation/queries#basic_forms).
  *
  * @param {module:query~ExprArg} msg
+ *   The message to send back to the client.
  * @return {Expr}
  * */
 function Abort(msg) {
@@ -5456,7 +5498,9 @@ function Abort(msg) {
  * See the [docs](https://fauna.com/documentation/queries#basic_forms).
  *
  * @param {module:query~ExprArg} timestamp
+ *   An Expr that will evaluate to a Time.
  * @param {module:query~ExprArg} expr
+ *   The Expr to run at the given snapshot time.
  * @return {Expr}
  * */
 function At(timestamp, expr) {
@@ -5467,8 +5511,10 @@ function At(timestamp, expr) {
 /**
  * See the [docs](https://fauna.com/documentation/queries#basic_forms).
  *
- * @param {module:query~ExprArg} vars
- * @param {module:query~ExprArg} in_expr
+ * @param {module:query~ExprArg} bindings
+ *   A set of bindings to use within the given expression.
+ * @param {module:query~ExprArg} in
+ *   The expression to run with the given bindings.
  * @return {Expr}
  * */
 function Let(vars, in_expr) {
@@ -5487,6 +5533,7 @@ function Let(vars, in_expr) {
  * See the [docs](https://fauna.com/documentation/queries#basic_forms).
  *
  * @param {module:query~ExprArg} varName
+ *   The name of the bound var.
  * @return {Expr}
  * */
 function Var(varName) {
@@ -5498,8 +5545,11 @@ function Var(varName) {
  * See the [docs](https://fauna.com/documentation/queries#basic_forms).
  *
  * @param {module:query~ExprArg} condition
+ *   An expression that returns a boolean.
  * @param {module:query~ExprArg} then
- * @param {module:query~ExprArg} _else
+ *   The expression to run if condition is true.
+ * @param {module:query~ExprArg} else
+ *   The expression to run if the condition is false.
  * @return {Expr}
  * */
 function If(condition, then, _else) {
@@ -5511,6 +5561,7 @@ function If(condition, then, _else) {
  * See the [docs](https://fauna.com/documentation/queries#basic_form).
  *
  * @param {...module:query~ExprArg} args
+ *   A series of expressions to run.
  * @return {Expr}
  * */
 function Do() {
@@ -5521,6 +5572,7 @@ function Do() {
 /** See the [docs](https://fauna.com/documentation/queries#basic_forms).
  *
  * @param {...module:query~ExprArg} fields
+ *   The object to be escaped.
  * @return {Expr}
  * */
 var objectFunction = function(fields) {
@@ -5551,7 +5603,7 @@ var objectFunction = function(fields) {
  * Directly produces a FaunaDB Lambda expression as described in the FaunaDB reference
  * documentation.
  *
- * @param {module:query~ExprArg} var_name
+ * @param {module:query~ExprArg} var
  *   The names of the variables to be bound in this lambda expression.
  * @param {module:query~ExprArg} expr
  *   The lambda expression.
@@ -5609,7 +5661,9 @@ function _lambdaExpr(var_name, expr) {
  * ```
  *
  * @param {module:query~ExprArg} ref
+ *   The ref of the UserDefinedFunction to call
  * @param {...module:query~ExprArg} args
+ *   A series of values to pass as arguments to the UDF.
  * @return {Expr}
  * */
 function Call(ref) {
@@ -5630,6 +5684,7 @@ function Call(ref) {
  * ```
  *
  * @param {module:query~ExprArg|function} lambda
+ *   A function to escape as a query.
  * @return {Expr}
  * */
 function Query(lambda) {
@@ -5642,7 +5697,9 @@ function Query(lambda) {
 /** See the [docs](https://fauna.com/documentation/queries#collection_functions).
  *
  * @param {module:query~ExprArg} collection
- * @param {module:query~ExprArg|function} lambda_expr
+ *   An expression resulting in a collection to be mapped over.
+ * @param {module:query~ExprArg|function} lambda
+ *   A function to be called for each element of the collection.
  * @return {Expr}
  * */
 function Map(collection, lambda_expr) {
@@ -5654,7 +5711,9 @@ function Map(collection, lambda_expr) {
  * See the [docs](https://fauna.com/documentation/queries#collection_functions).
  *
  * @param {module:query~ExprArg} collection
- * @param {module:query~ExprArg|function} lambda_expr
+ *   An expression resulting in a collection to be iterated over.
+ * @param {module:query~ExprArg|function} lambda
+ *   A function to be called for each element of the collection.
  * @return {Expr}
  * */
 function Foreach(collection, lambda_expr) {
@@ -5666,7 +5725,9 @@ function Foreach(collection, lambda_expr) {
  * See the [docs](https://fauna.com/documentation/queries#collection_functions).
  *
  * @param {module:query~ExprArg} collection
- * @param {module:query~ExprArg|function} lambda_expr
+ *   An expression resulting in a collection to be filtered.
+ * @param {module:query~ExprArg|function} lambda
+ *   A function that returns a boolean used to filter unwanted values.
  * @return {Expr}
  * */
 function Filter(collection, lambda_expr) {
@@ -5678,7 +5739,9 @@ function Filter(collection, lambda_expr) {
  * See the [docs](https://fauna.com/documentation/queries#collection_functions).
  *
  * @param {module:query~ExprArg} number
+ *   An expression resulting in the number of elements to take from the collection.
  * @param {module:query~ExprArg} collection
+ *   An expression resulting in a collection.
  * @return {Expr}
  * */
 function Take(number, collection) {
@@ -5690,7 +5753,9 @@ function Take(number, collection) {
  * See the [docs](https://fauna.com/documentation/queries#collection_functions).
  *
  * @param {module:query~ExprArg} number
+ *   An expression resulting in the number of elements to drop from the collection.
  * @param {module:query~ExprArg} collection
+ *   An expression resulting in a collection.
  * @return {Expr}
  * */
 function Drop(number, collection) {
@@ -5702,7 +5767,9 @@ function Drop(number, collection) {
  * See the [docs](https://fauna.com/documentation/queries#collection_functions).
  *
  * @param {module:query~ExprArg} elements
+ *   An expression resulting in a collection of elements to prepend to the given collection.
  * @param {module:query~ExprArg} collection
+ *   An expression resulting in a collection.
  * @return {Expr}
  */
 function Prepend(elements, collection) {
@@ -5714,12 +5781,38 @@ function Prepend(elements, collection) {
  * See the [docs](https://fauna.com/documentation/queries#collection_functions).
  *
  * @param {module:query~ExprArg} elements
+ *   An expression resulting in a collection of elements to append to the given collection.
  * @param {module:query~ExprArg} collection
+ *   An expression resulting in a collection.
  * @return {Expr}
  */
 function Append(elements, collection) {
   arity.exact(2, arguments);
   return new Expr({ append: wrap(elements), collection: wrap(collection) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#collection_functions).
+ *
+ * @param {module:query~ExprArg} collection
+ *   An expression resulting in a collection.
+ * @return {Expr}
+ */
+function IsEmpty(collection) {
+  arity.exact(1, arguments);
+  return new Expr({ is_empty: wrap(collection) });
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#collection_functions).
+ *
+ * @param {module:query~ExprArg} collection
+ *   An expression resulting in a collection.
+ * @return {Expr}
+ */
+function IsNonEmpty(collection) {
+  arity.exact(1, arguments);
+  return new Expr({ is_nonempty: wrap(collection) });
 }
 
 // Read functions
@@ -5728,7 +5821,9 @@ function Append(elements, collection) {
  * See the [docs](https://fauna.com/documentation/queries#read_functions).
  *
  * @param {module:query~ExprArg} ref
+ *   An expression resulting in either a Ref or SetRef.
  * @param {?module:query~ExprArg} ts
+ *   The snapshot time at which to get the instance.
  * @return {Expr}
  */
 function Get(ref, ts) {
@@ -5742,6 +5837,7 @@ function Get(ref, ts) {
  * See the [docs](https://fauna.com/documentation/queries#read_functions).
  *
  * @param {module:query~ExprArg} secret
+ *   The key or token secret to lookup.
  * @return {Expr}
  */
 function KeyFromSecret(secret) {
@@ -5755,7 +5851,13 @@ function KeyFromSecret(secret) {
  * rather than using this query function directly.
  *
  * @param {module:query~ExprArg} set
+ *   An expression resulting in a SetRef to page over.
  * @param {?Object} opts
+ *  An object representing options for pagination.
+ *    - size: Maximum number of results to return.
+ *    - after: Return the next page of results after this cursor (inclusive).
+ *    - before: Return the previous page of results before this cursor (exclusive).
+ *    - sources: If true, include the source sets along with each element.
  * @return {Expr}
  */
 function Paginate(set, opts) {
@@ -5769,7 +5871,9 @@ function Paginate(set, opts) {
  * See the [docs](https://fauna.com/documentation/queries#read_functions).
  *
  * @param {module:query~ExprArg} ref
+ *   An expression resulting in a Ref.
  * @param {?module:query~ExprArg} ts
+ *   The snapshot time at which to check for the instance's existence.
  * @return {Expr}
  */
 function Exists(ref, ts) {
@@ -5784,8 +5888,10 @@ function Exists(ref, ts) {
 /**
  * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
- * @param {module:query~ExprArg} class_ref
+ * @param {module:query~ExprArg} ref
+ *   The Ref (usually a ClassRef) to create.
  * @param {?module:query~ExprArg} params
+ *   An object representing the parameters of the instance.
  * @return {Expr}
  */
 function Create(class_ref, params) {
@@ -5797,7 +5903,9 @@ function Create(class_ref, params) {
  * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
  * @param {module:query~ExprArg} ref
+ *   The Ref to update.
  * @param {module:query~ExprArg} params
+ *   An object representing the parameters of the instance.
  * @return {Expr}
  */
 function Update(ref, params) {
@@ -5809,7 +5917,9 @@ function Update(ref, params) {
  * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
  * @param {module:query~ExprArg} ref
+ *   The Ref to replace.
  * @param {module:query~ExprArg} params
+ *   An object representing the parameters of the instance.
  * @return {Expr}
  */
 function Replace(ref, params) {
@@ -5821,6 +5931,7 @@ function Replace(ref, params) {
  * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
  * @param {module:query~ExprArg} ref
+ *   The Ref to delete.
  * @return {Expr}
  */
 function Delete(ref) {
@@ -5832,9 +5943,13 @@ function Delete(ref) {
  * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
  * @param {module:query~ExprArg} ref
+ *   The Ref to insert against
  * @param {module:query~ExprArg} ts
+ *   The valid time of the inserted event
  * @param {module:query~ExprArg} action
+ *   Whether the event should be a Create, Update, or Delete.
  * @param {module:query~ExprArg} params
+ *   If this is a Create or Update, the parameters of the instance.
  * @return {Expr}
  */
 function Insert(ref, ts, action, params) {
@@ -5846,8 +5961,11 @@ function Insert(ref, ts, action, params) {
  * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
  * @param {module:query~ExprArg} ref
+ *   The Ref of the instance whose event should be removed.
  * @param {module:query~ExprArg} ts
+ *   The valid time of the event.
  * @param {module:query~ExprArg} action
+ *   The event action (Create, Update, or Delete) that should be removed.
  * @return {Expr}
  */
 function Remove(ref, ts, action) {
@@ -5859,6 +5977,8 @@ function Remove(ref, ts, action) {
  * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
  * @param {module:query~ExprArg} params
+ *   An object of parameters used to create a class.
+ *     - name (required): the name of the class to create
  * @return {Expr}
  */
 function CreateClass(params) {
@@ -5870,6 +5990,8 @@ function CreateClass(params) {
  * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
  * @param {module:query~ExprArg} params
+ *   An object of parameters used to create a database.
+ *     - name (required): the name of the database to create
  * @return {Expr}
  */
 function CreateDatabase(params) {
@@ -5881,6 +6003,13 @@ function CreateDatabase(params) {
  * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
  * @param {module:query~ExprArg} params
+ *   An object of parameters used to create an index.
+ *     - name (required): the name of the index to create
+ *     - source: One or more source objects describing source classes and (optional) field bindings.
+ *     - terms: An array of term objects describing the fields to be indexed. Optional
+ *     - values: An array of value objects describing the fields to be covered. Optional
+ *     - unique: If true, maintains a uniqueness constraint on combined terms and values. Optional
+ *     - partitions: The number of sub-partitions within each term. Optional
  * @return {Expr}
  */
 function CreateIndex(params) {
@@ -5892,6 +6021,9 @@ function CreateIndex(params) {
  * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
  * @param {module:query~ExprArg} params
+ *   An object of parameters used to create a new key
+ *     - database: Ref of the database the key will be scoped to
+ *     - role: The role of the new key
  * @return {Expr}
  */
 function CreateKey(params) {
@@ -5903,6 +6035,9 @@ function CreateKey(params) {
  * See the [docs](https://fauna.com/documentation/queries#write_functions).
  *
  * @param {module:query~ExprArg} params
+ *   An objet of parameters used to create a new user defined function.
+ *     - name: The name of the function
+ *     - body: A lambda function (escaped with `query`).
  * @return {Expr}
  */
 function CreateFunction(params) {
@@ -5916,6 +6051,7 @@ function CreateFunction(params) {
  * See the [docs](https://fauna.com/documentation/queries#sets).
  *
  * @param {module:query~ExprArg} ref
+ *   The Ref of the instance for which to retrieve the singleton set.
  * @return {Expr}
  */
 function Singleton(ref) {
@@ -5926,7 +6062,8 @@ function Singleton(ref) {
 /**
  * See the [docs](https://fauna.com/documentation/queries#sets).
  *
- * @param {module:query~ExprArg} ref_set
+ * @param {module:query~ExprArg} ref
+ *   A Ref or SetRef to retrieve an event set from.
  * @return {Expr}
  */
 function Events(ref_set) {
@@ -5938,7 +6075,9 @@ function Events(ref_set) {
  * See the [docs](https://fauna.com/documentation/queries#sets).
  *
  * @param {module:query~ExprArg} index
+ *   The Ref of the index to match against.
  * @param {...module:query~ExprArg} terms
+ *   A list of terms used in the match.
  * @return {Expr}
  */
 function Match(index) {
@@ -5952,6 +6091,7 @@ function Match(index) {
  * See the [docs](https://fauna.com/documentation/queries#sets).
  *
  * @param {...module:query~ExprArg} sets
+ *   A list of SetRefs to union together.
  * @return {Expr}
  */
 function Union() {
@@ -5963,6 +6103,7 @@ function Union() {
  * See the [docs](https://fauna.com/documentation/queries#sets).
  *
  * @param {...module:query~ExprArg} sets
+ *   A list of SetRefs to intersect.
  * @return {Expr}
  * */
 function Intersection() {
@@ -5974,6 +6115,7 @@ function Intersection() {
  * See the [docs](https://fauna.com/documentation/queries#sets).
  *
  * @param {...module:query~ExprArg} sets
+ *   A list of SetRefs to diff.
  * @return {Expr}
  * */
 function Difference() {
@@ -5985,6 +6127,7 @@ function Difference() {
  * See the [docs](https://fauna.com/documentation/queries#sets).
  *
  * @param {module:query~ExprArg} set
+ *   A SetRef to remove duplicates from.
  * @return {Expr}
  * */
 function Distinct(set) {
@@ -5996,7 +6139,9 @@ function Distinct(set) {
  * See the [docs](https://fauna.com/documentation/queries#sets).
  *
  * @param {module:query~ExprArg} source
+ *   A SetRef of the source set
  * @param {module:query~ExprArg|function} target
+ *   A Lambda that will accept each element of the source Set and return a Set
  * @return {Expr}
  */
 function Join(source, target) {
@@ -6010,7 +6155,10 @@ function Join(source, target) {
  * See the [docs](https://fauna.com/documentation/queries#auth_functions).
  *
  * @param {module:query~ExprArg} ref
+ *   A Ref with credentials to authenticate against
  * @param {module:query~ExprArg} params
+ *   An object of parameters to pass to the login function
+ *     - password: The password used to login
  * @return {Expr}
  * */
 function Login(ref, params) {
@@ -6022,6 +6170,7 @@ function Login(ref, params) {
  * See the [docs](https://fauna.com/documentation/queries#auth_functions).
  *
  * @param {module:query~ExprArg} delete_tokens
+ *   If true, log out all tokens associated with the current session.
  * @return {Expr}
  */
 function Logout(delete_tokens) {
@@ -6033,7 +6182,9 @@ function Logout(delete_tokens) {
  * See the [docs](https://fauna.com/documentation/queries#auth_functions).
  *
  * @param {module:query~ExprArg} ref
+ *   The Ref to check the password against.
  * @param {module:query~ExprArg} password
+ *   The credentials password to check.
  * @return {Expr}
  */
 function Identify(ref, password) {
@@ -6067,7 +6218,9 @@ function HasIdentity() {
  * See the [docs](https://fauna.com/documentation/queries#string_functions).
  *
  * @param {module:query~ExprArg} strings
+ *   A list of strings to concatenate.
  * @param {?module:query~ExprArg} separator
+ *   The separator to use between each string.
  * @return {Expr}
  */
 function Concat(strings, separator) {
@@ -6080,7 +6233,9 @@ function Concat(strings, separator) {
  * See the [docs](https://fauna.com/documentation/queries#string_functions).
  *
  * @param {module:query~ExprArg} string
+ *   The string to casefold.
  * @param {module:query~ExprArg} normalizer
+ *   The algorithm to use. One of: NFKCCaseFold, NFC, NFD, NFKC, NFKD.
  * @return {Expr}
  */
 function Casefold(string, normalizer) {
@@ -6088,11 +6243,30 @@ function Casefold(string, normalizer) {
   return new Expr(params({ casefold: wrap(string) }, { normalizer: wrap(normalizer) }));
 }
 
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
+ *
+ * @param {module:query~ExprArg} terms
+ *   A document from which to produce ngrams.
+ * @param {?Object} opts
+ *   An object of options
+ *     - min: The minimum ngram size.
+ *     - max: The maximum ngram size.
+ * @return {Expr}
+ */
+function NGram(terms, opts) {
+  arity.between(1, 2, arguments);
+  opts = defaults(opts, {});
+
+  return new Expr(objectAssign({ ngram: wrap(terms) }, wrapValues(opts)));
+}
+
 // Time and date functions
 /**
  * See the [docs](https://fauna.com/documentation/queries#time_functions).
  *
  * @param {module:query~ExprArg} string
+ *   A string to convert to a time object.
  * @return {Expr}
  */
 function Time(string) {
@@ -6104,7 +6278,9 @@ function Time(string) {
  * See the [docs](https://fauna.com/documentation/queries#time_functions).
  *
  * @param {module:query~ExprArg} number
+ *   The number of `unit`s from Epoch
  * @param {module:query~ExprArg} unit
+ *   The unit of `number`. One of second, millisecond, microsecond, nanosecond.
  * @return {Expr}
  */
 function Epoch(number, unit) {
@@ -6116,6 +6292,7 @@ function Epoch(number, unit) {
  * See the [docs](https://fauna.com/documentation/queries#time_functions).
  *
  * @param {module:query~ExprArg} string
+ *   A string to convert to a Date object
  * @return {Expr}
  */
 function Date(string) {
@@ -6150,7 +6327,9 @@ function NewId() {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {module:query~ExprArg} name
+ *   The name of the database.
  * @param {module:query~ExprArg} [scope]
+ *   The Ref of the database's scope.
  * @return {Expr}
  */
 function Database(name, scope) {
@@ -6165,7 +6344,9 @@ function Database(name, scope) {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {module:query~ExprArg} name
+ *   The name of the index.
  * @param {module:query~ExprArg} [scope]
+ *   The Ref of the index's scope.
  * @return {Expr}
  */
 function Index(name, scope) {
@@ -6180,7 +6361,9 @@ function Index(name, scope) {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {module:query~ExprArg} name
+ *   The name of the class.
  * @param {module:query~ExprArg} [scope]
+ *   The Ref of the class's scope.
  * @return {Expr}
  */
 function Class(name, scope) {
@@ -6195,7 +6378,9 @@ function Class(name, scope) {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {module:query~ExprArg} name
+ *   The name of the user defined function.
  * @param {module:query~ExprArg} [scope]
+ *   The Ref of the user defined function's scope.
  * @return {Expr}
  */
 function FunctionFn(name, scope) {
@@ -6212,6 +6397,7 @@ function FunctionFn(name, scope) {
  * Constructs a `classes` function that, when evaluated, returns a Ref value.
  *
  * @param {module:query~ExprArg} [scope]
+ *   The Ref of the class set's scope.
  * @return {Expr}
  */
 function Classes(scope) {
@@ -6225,6 +6411,7 @@ function Classes(scope) {
  * Constructs a `databases` functions that, when evaluated, returns a Ref value.
  *
  * @param {module:query~ExprArg} [scope]
+ *   The Ref of the database set's scope.
  * @return {Expr}
  */
 function Databases(scope) {
@@ -6238,6 +6425,7 @@ function Databases(scope) {
  * Constructs an `indexes` function that, when evaluated, returns a Ref value.
  *
  * @param {module:query~ExprArg} [scope]
+ *   The Ref of the index set's scope.
  * @return {Expr}
  */
 function Indexes(scope) {
@@ -6251,6 +6439,7 @@ function Indexes(scope) {
  * Constructs a `functions` function that, when evaluated, returns a Ref value.
  *
  * @param {module:query~ExprArg} [scope]
+ *   The Ref of the user defined function set's scope.
  * @return {Expr}
  */
 function Functions(scope) {
@@ -6264,6 +6453,7 @@ function Functions(scope) {
  * Constructs a `keys` function that, when evaluated, returns a Ref value.
  *
  * @param {module:query~ExprArg} [scope]
+ *   The Ref of the key set's scope.
  * @return {Expr}
  */
 function Keys(scope) {
@@ -6277,6 +6467,7 @@ function Keys(scope) {
  * Constructs a `tokens` function that, when evaluated, returns a Ref value.
  *
  * @param {module:query~ExprArg} [scope]
+ *   The Ref of the token set's scope.
  * @return {Expr}
  */
 function Tokens(scope) {
@@ -6290,6 +6481,7 @@ function Tokens(scope) {
  * Constructs a `credentials` functions that, when evaluated, returns a Ref value.
  *
  * @param {module:query~ExprArg} [scope]
+ *   The Ref of the credential set's scope.
  * @return {Expr}
  */
 function Credentials(scope) {
@@ -6301,6 +6493,7 @@ function Credentials(scope) {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
+ *   A collection of expressions to check for equivalence.
  * @return {Expr}
  */
 function Equals() {
@@ -6312,7 +6505,9 @@ function Equals() {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {module:query~ExprArg} path
- * @param {module:query~ExprArg} _in
+ *   An array representing a path to check for the existence of.
+ * @param {module:query~ExprArg} in
+ *   An object to search against.
  * @return {Expr}
  */
 function Contains(path, _in) {
@@ -6324,8 +6519,11 @@ function Contains(path, _in) {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {module:query~ExprArg} path
+ *   An array representing a path to pull from an object.
  * @param {module:query~ExprArg} from
- * @param {?module:query~ExprArg} _default
+ *   The object to select from
+ * @param {?module:query~ExprArg} default
+ *   A default value if the path does not exist.
  * @return {Expr}
  */
 function Select(path, from, _default) {
@@ -6341,7 +6539,9 @@ function Select(path, from, _default) {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {module:query~ExprArg} path
+ *   An array representing a path to pull from an object.
  * @param {module:query~ExprArg} from
+ *   The object to select from
  * @return {Expr}
  */
 function SelectAll(path, from) {
@@ -6353,6 +6553,7 @@ function SelectAll(path, from) {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
+ *   A collection of numbers to sum together.
  * @return {Expr}
  */
 function Add() {
@@ -6364,6 +6565,7 @@ function Add() {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
+ *   A collection of numbers to multiply together.
  * @return {Expr}
  */
 function Multiply() {
@@ -6375,6 +6577,7 @@ function Multiply() {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
+ *   A collection of numbers to compute the difference of.
  * @return {Expr}
  */
 function Subtract() {
@@ -6386,6 +6589,7 @@ function Subtract() {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
+ *   A collection of numbers to compute the quotient of.
  * @return {Expr}
  */
 function Divide() {
@@ -6397,6 +6601,7 @@ function Divide() {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
+ *   A collection of numbers to compute the quotient of. The remainder will be returned.
  * @return {Expr}
  */
 function Modulo() {
@@ -6408,6 +6613,7 @@ function Modulo() {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
+ *   A collection of terms to compare.
  * @return {Expr}
  */
 function LT() {
@@ -6419,6 +6625,7 @@ function LT() {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
+ *   A collection of terms to compare.
  * @return {Expr}
  */
 function LTE() {
@@ -6430,6 +6637,7 @@ function LTE() {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
+ *   A collection of terms to compare.
  * @return {Expr}
  */
 function GT() {
@@ -6441,6 +6649,7 @@ function GT() {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
+ *   A collection of terms to compare.
  * @return {Expr}
  */
 function GTE() {
@@ -6452,6 +6661,7 @@ function GTE() {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
+ *   A collection to compute the conjunction of.
  * @return {Expr}
  */
 function And() {
@@ -6463,6 +6673,7 @@ function And() {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {...module:query~ExprArg} terms
+ *   A collection to compute the disjunction of.
  * @return {Expr}
  */
 function Or() {
@@ -6474,6 +6685,7 @@ function Or() {
  * See the [docs](https://fauna.com/documentation/queries#misc_functions).
  *
  * @param {module:query~ExprArg} boolean
+ *   A boolean to produce the negation of.
  * @return {Expr}
  */
 function Not(boolean) {
@@ -6614,6 +6826,8 @@ module.exports = {
   Drop: Drop,
   Prepend: Prepend,
   Append: Append,
+  IsEmpty: IsEmpty,
+  IsNonEmpty: IsNonEmpty,
   Get: Get,
   KeyFromSecret: KeyFromSecret,
   Paginate: Paginate,
@@ -6644,6 +6858,7 @@ module.exports = {
   HasIdentity: HasIdentity,
   Concat: Concat,
   Casefold: Casefold,
+  NGram: NGram,
   Time: Time,
   Epoch: Epoch,
   Date: Date,
@@ -6693,7 +6908,7 @@ var util = require('util');
  *
  * Instances of these classes will be returned in responses if the response object
  * contains these values. For example, a FaunaDB response containing
- *`{ "@ref": { "id": "123", "class": { "@ref": { "id": "frogs", "class": { "@ref": { "id": "classes" } } } } } }
+ *`{ "@ref": { "id": "123", "class": { "@ref": { "id": "frogs", "class": { "@ref": { "id": "classes" } } } } } }`
  * will be returned as `new values.Ref("123", new values.Ref("frogs", values.Native.CLASSES))`.
  *
  * See the [FaunaDB Query API Documentation](https://fauna.com/documentation/queries#values)
@@ -6797,7 +7012,12 @@ Ref.prototype.inspect = function() {
  * @returns {boolean}
  */
 Ref.prototype.equals = function(other) {
-  return other instanceof Ref && this.value === other.value;
+  return (other instanceof Ref) &&
+    this.id === other.id &&
+    ((this.class === undefined && other.class === undefined) ||
+      this.class.equals(other.class)) &&
+    ((this.database === undefined && other.database === undefined) ||
+      this.database.equals(other.database))
 };
 
 var Native = {
