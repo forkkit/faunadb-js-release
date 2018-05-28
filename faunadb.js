@@ -4539,12 +4539,12 @@ Client.prototype._execute = function (action, path, data, query) {
 
   var startTime = Date.now();
   var self = this;
-  return this._performRequest(action, path, data, query).then(function (response) {
+  return this._performRequest(action, path, data, query).then(function (response, rawQuery) {
     var endTime = Date.now();
     var responseObject = json.parseJSON(response.text);
     var requestResult = new RequestResult(
       self,
-      action, path, query, JSON.stringify(data),
+      action, path, query, rawQuery, data,
       response.text, responseObject, response.status, response.header,
       startTime, endTime);
 
@@ -4563,8 +4563,9 @@ Client.prototype._performRequest = function (action, path, data, query) {
     rq.query(query);
   }
 
+  var rawQuery = JSON.stringify(data);
   rq.type('json');
-  rq.send(JSON.stringify(data));
+  rq.send(rawQuery);
 
   if (this._secret) {
     rq.set('Authorization', secretHeader(this._secret));
@@ -4584,7 +4585,7 @@ Client.prototype._performRequest = function (action, path, data, query) {
           !(error.response.status >= 400 && error.response.status <= 599)) {
         reject(error);
       } else {
-        resolve(result);
+        resolve(result, rawQuery);
       }
     });
   });
@@ -4874,6 +4875,8 @@ module.exports = PageHelper;
  *   The path that was queried. Relative to the client's domain.
  * @param {string} query
  *   URL query parameters. Only set if `method` is "GET".
+ * @param {Object} requestRaw
+ *   The JSON request string.
  * @param {Object} requestContent
  *   The request data.
  * @param {string} responseRaw
@@ -4890,7 +4893,7 @@ module.exports = PageHelper;
  *   The time the response was received by the client.
  * @constructor
  */
-function RequestResult(client, method, path, query, requestContent, responseRaw, responseContent, statusCode, responseHeaders, startTime, endTime) {
+function RequestResult(client, method, path, query, requestRaw, requestContent, responseRaw, responseContent, statusCode, responseHeaders, startTime, endTime) {
   /** @type {Client} */
   this.client = client;
 
@@ -4906,6 +4909,9 @@ function RequestResult(client, method, path, query, requestContent, responseRaw,
    * @type {object}
    */
   this.query = query;
+
+  /** @type {string} */
+  this.requestRaw = requestRaw;
 
   /** @type {object} */
   this.requestContent = requestContent;
@@ -6402,6 +6408,7 @@ function FunctionFn(name, scope) {
  */
 function Classes(scope) {
   arity.max(1, arguments);
+  scope = defaults(scope, null);
   return new Expr({ classes: wrap(scope) });
 }
 
@@ -6416,6 +6423,7 @@ function Classes(scope) {
  */
 function Databases(scope) {
   arity.max(1, arguments);
+  scope = defaults(scope, null);
   return new Expr({ databases: wrap(scope) });
 }
 
@@ -6430,6 +6438,7 @@ function Databases(scope) {
  */
 function Indexes(scope) {
   arity.max(1, arguments);
+  scope = defaults(scope, null);
   return new Expr({ indexes: wrap(scope) });
 }
 
@@ -6444,6 +6453,7 @@ function Indexes(scope) {
  */
 function Functions(scope) {
   arity.max(1, arguments);
+  scope = defaults(scope, null);
   return new Expr({ functions: wrap(scope) });
 }
 
@@ -6458,6 +6468,7 @@ function Functions(scope) {
  */
 function Keys(scope) {
   arity.max(1, arguments);
+  scope = defaults(scope, null);
   return new Expr({ keys: wrap(scope) });
 }
 
@@ -6472,6 +6483,7 @@ function Keys(scope) {
  */
 function Tokens(scope) {
   arity.max(1, arguments);
+  scope = defaults(scope, null);
   return new Expr({ tokens: wrap(scope) });
 }
 
@@ -6486,6 +6498,7 @@ function Tokens(scope) {
  */
 function Credentials(scope) {
   arity.max(1, arguments);
+  scope = defaults(scope, null);
   return new Expr({ credentials: wrap(scope) });
 }
 
