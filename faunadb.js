@@ -1523,7 +1523,7 @@ return Promise$1;
 
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":8}],6:[function(require,module,exports){
+},{"_process":9}],6:[function(require,module,exports){
 'use strict';
 
 module.exports = annotate;
@@ -1582,6 +1582,31 @@ function annotate(fn) {
 }
 
 },{}],7:[function(require,module,exports){
+if (typeof Object.create === 'function') {
+  // implementation from standard node.js 'util' module
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    ctor.prototype = Object.create(superCtor.prototype, {
+      constructor: {
+        value: ctor,
+        enumerable: false,
+        writable: true,
+        configurable: true
+      }
+    });
+  };
+} else {
+  // old school shim for old browsers
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    var TempCtor = function () {}
+    TempCtor.prototype = superCtor.prototype
+    ctor.prototype = new TempCtor()
+    ctor.prototype.constructor = ctor
+  }
+}
+
+},{}],8:[function(require,module,exports){
 /*
 object-assign
 (c) Sindre Sorhus
@@ -1673,7 +1698,7 @@ module.exports = shouldUseNative() ? Object.assign : function (target, source) {
 	return to;
 };
 
-},{}],8:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -1859,7 +1884,7 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],9:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 function Agent() {
   this._defaults = [];
 }
@@ -1881,7 +1906,7 @@ Agent.prototype._setDefaults = function(req) {
 
 module.exports = Agent;
 
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 /**
  * Root reference for iframes.
  */
@@ -2803,7 +2828,7 @@ request.put = function(url, data, fn) {
   return req;
 };
 
-},{"./agent-base":9,"./is-object":11,"./request-base":12,"./response-base":13,"component-emitter":4}],11:[function(require,module,exports){
+},{"./agent-base":10,"./is-object":12,"./request-base":13,"./response-base":14,"component-emitter":4}],12:[function(require,module,exports){
 'use strict';
 
 /**
@@ -2820,7 +2845,7 @@ function isObject(obj) {
 
 module.exports = isObject;
 
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 'use strict';
 
 /**
@@ -3516,7 +3541,7 @@ RequestBase.prototype._setTimeouts = function() {
   }
 };
 
-},{"./is-object":11}],13:[function(require,module,exports){
+},{"./is-object":12}],14:[function(require,module,exports){
 'use strict';
 
 /**
@@ -3654,7 +3679,7 @@ ResponseBase.prototype._setStatusProperties = function(status){
     this.unprocessableEntity = 422 == status;
 };
 
-},{"./utils":14}],14:[function(require,module,exports){
+},{"./utils":15}],15:[function(require,module,exports){
 'use strict';
 
 /**
@@ -3727,7 +3752,7 @@ exports.cleanHeader = function(header, changesOrigin){
   return header;
 };
 
-},{}],15:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 (function (global){
 
 /**
@@ -3798,31 +3823,6 @@ function config (name) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],16:[function(require,module,exports){
-if (typeof Object.create === 'function') {
-  // implementation from standard node.js 'util' module
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    ctor.prototype = Object.create(superCtor.prototype, {
-      constructor: {
-        value: ctor,
-        enumerable: false,
-        writable: true,
-        configurable: true
-      }
-    });
-  };
-} else {
-  // old school shim for old browsers
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    var TempCtor = function () {}
-    TempCtor.prototype = superCtor.prototype
-    ctor.prototype = new TempCtor()
-    ctor.prototype.constructor = ctor
-  }
-}
-
 },{}],17:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
@@ -4420,7 +4420,7 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":17,"_process":8,"inherits":16}],19:[function(require,module,exports){
+},{"./support/isBuffer":17,"_process":9,"inherits":7}],19:[function(require,module,exports){
 'use strict';
 
 var btoa = require('btoa-lite');
@@ -4605,7 +4605,7 @@ function secretHeader(secret) {
 
 module.exports = Client;
 
-},{"./PageHelper":21,"./RequestResult":22,"./_json":23,"./_util":24,"./errors":26,"./query":27,"./values":28,"btoa-lite":3,"es6-promise":5,"superagent":10}],20:[function(require,module,exports){
+},{"./PageHelper":21,"./RequestResult":22,"./_json":23,"./_util":24,"./errors":26,"./query":27,"./values":28,"btoa-lite":3,"es6-promise":5,"superagent":11}],20:[function(require,module,exports){
 'use strict';
 
 /**
@@ -4623,7 +4623,50 @@ Expr.prototype.toJSON = function() {
   return this.raw;
 };
 
+var varArgsFunctions = ['Do', 'Call', 'Union', 'Intersection', 'Difference', 'Equals', 'Add', 'Multiply', 'Subtract', 'Divide', 'Modulo', 'LT', 'LTE', 'GT', 'GTE', 'And', 'Or'];
+var specialCases = {
+  is_nonempty: 'is_non_empty',
+  lt: 'LT',
+  lte: 'LTE',
+  gt: 'GT',
+  gte: 'GTE'
+};
+
+var exprToString = function(expr, caller) {
+  if (expr instanceof Expr)
+    expr = expr.raw;
+
+  if (typeof expr === 'string')
+    return '"' + expr + '"';
+
+  if (typeof expr === 'number')
+    return expr.toString();
+
+  if (Array.isArray(expr)) {
+    var array = expr.map(function(item) { return exprToString(item); }).join(', ');
+
+    return varArgsFunctions.includes(caller) ? array : '[' + array + ']';
+  }
+
+  var keys = Object.keys(expr);
+  var fn = keys[0];
+
+  if (fn === 'object')
+    return '{' + Object.keys(expr.object).map(function(k) { return k + ': ' + exprToString(expr.object[k])}).join(', ') + '}';
+
+  if (fn in specialCases)
+    fn = specialCases[fn];
+
+  fn = fn.split('_').map(function(str) { return str.charAt(0).toUpperCase() + str.slice(1); }).join('');
+
+  var args = Object.values(expr).map(function(v) { return exprToString(v, fn)}).join(', ');
+  return fn + '(' + args + ')';
+};
+
+Expr.toString = exprToString;
+
 module.exports = Expr;
+
 },{}],21:[function(require,module,exports){
 'use strict';
 
@@ -4860,7 +4903,7 @@ PageHelper.prototype._clone = function() {
 
 module.exports = PageHelper;
 
-},{"./query":27,"es6-promise":5,"object-assign":7}],22:[function(require,module,exports){
+},{"./query":27,"es6-promise":5,"object-assign":8}],22:[function(require,module,exports){
 'use strict';
 
 /**
@@ -5486,6 +5529,16 @@ function Ref() {
   }
 }
 
+/**
+ * @param {Uint8Array|ArrayBuffer|module:query~ExprArg} bytes
+ *   A base64 encoded string or a byte array
+ * @return {Expr}
+ */
+function Bytes(bytes) {
+  arity.exact(1, arguments);
+  return new values.Bytes(bytes);
+}
+
 // Basic forms
 
 /**
@@ -5526,7 +5579,7 @@ function At(timestamp, expr) {
 function Let(vars, in_expr) {
   arity.exact(2, arguments);
 
-  if (in_expr instanceof Function) {
+  if (typeof in_expr === 'function') {
     in_expr = in_expr.apply(null, Object.keys(vars).map(function(name) {
       return Var(name);
     }));
@@ -5620,7 +5673,7 @@ function Lambda() {
   switch(arguments.length) {
     case 1:
       var value = arguments[0];
-      if (value instanceof Function) {
+      if (typeof value === 'function') {
         return _lambdaFunc(value);
       } else if (value instanceof Expr) {
         return value;
@@ -6706,6 +6759,54 @@ function Not(boolean) {
   return new Expr({ not: wrap(boolean) });
 }
 
+/**
+ * Converts an expression to a string literal.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to a string.
+ * @return {Expr}
+ */
+function ToString(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ to_string: wrap(expr) });
+}
+
+/**
+ * Converts an expression to a number literal.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to a number.
+ * @return {Expr}
+ */
+function ToNumber(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ to_number: wrap(expr) });
+}
+
+/**
+ * Converts an expression to a time literal.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to a time.
+ * @return {Expr}
+ */
+function ToTime(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ to_time: wrap(expr) });
+}
+
+/**
+ * Converts an expression to a date literal.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to a date.
+ * @return {Expr}
+ */
+function ToDate(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ to_date: wrap(expr) });
+}
+
 // Helpers
 
 /**
@@ -6783,7 +6884,7 @@ function wrap(obj) {
     return null;
   } else if (obj instanceof Expr) {
     return obj;
-  } else if (obj instanceof Function) {
+  } else if (typeof obj === 'function') {
     return Lambda(obj);
   } else if (Array.isArray(obj)) {
     return new Expr(obj.map(function (elem) {
@@ -6822,6 +6923,7 @@ function wrapValues(obj) {
 
 module.exports = {
   Ref: Ref,
+  Bytes: Bytes,
   Abort: Abort,
   At: At,
   Let: Let,
@@ -6904,16 +7006,23 @@ module.exports = {
   And: And,
   Or: Or,
   Not: Not,
+  ToString: ToString,
+  ToNumber: ToNumber,
+  ToTime: ToTime,
+  ToDate: ToDate,
   wrap: wrap
 };
 
-},{"./Expr":20,"./errors":26,"./values":28,"fn-annotate":6,"object-assign":7,"util-deprecate":15}],28:[function(require,module,exports){
+},{"./Expr":20,"./errors":26,"./values":28,"fn-annotate":6,"object-assign":8,"util-deprecate":16}],28:[function(require,module,exports){
 'use strict';
 
 var base64 = require('base64-js');
 var errors = require('./errors');
 var Expr = require('./Expr');
 var util = require('util');
+
+var customInspect = util && util.inspect && util.inspect.custom;
+var stringify = (util && util.inspect) || JSON.stringify;
 
 /**
  * FaunaDB value types. Generally, these classes do not need to be instantiated
@@ -7000,23 +7109,35 @@ Ref.prototype.toJSON = function() {
   return { '@ref': this.value };
 };
 
-/** @ignore */
-Ref.prototype.toString = function() {
-  var cls = this.class !== undefined ? ', class=' + this.class.toString() : '';
-  var db = this.database !== undefined ? ' database=' +  this.database.toString() : '';
-  return 'Ref(id=' + this.id + cls + db + ')';
-};
+wrapToString(Ref, function() {
+  var constructors = {
+    classes: "Class",
+    databases: "Database",
+    indexes: "Index",
+    functions: "Function"
+  };
+
+  var toString = function(ref, prevDb) {
+    if (ref.class === undefined && ref.database === undefined)
+      return ref.id.charAt(0).toUpperCase() + ref.id.slice(1) + '(' + prevDb + ')';
+
+    var constructor = constructors[ref.class.id];
+    if (constructor !== undefined) {
+      var db = ref.database !== undefined ? ', ' +  ref.database.toString() : '';
+      return constructor + '("' + ref.id + '"' + db + ')';
+    }
+
+    var db = ref.database !== undefined ? ref.database.toString() : '';
+
+    return 'Ref(' + toString(ref.class, db) + ', "' + ref.id + '")';
+  };
+
+  return toString(this, '');
+});
 
 /** @ignore */
 Ref.prototype.valueOf = function() {
   return this.value;
-};
-
-/** @ignore */
-Ref.prototype.inspect = function() {
-  var cls = this.class !== undefined ? ', class=' + this.class.inspect() : '';
-  var db = this.database !== undefined ? ', database=' +  this.database.inspect() : '';
-  return 'Ref(id=' + this.id + cls + db + ')';
 };
 
 /**
@@ -7069,10 +7190,9 @@ function SetRef(value) {
 
 util.inherits(SetRef, Value);
 
-/** @ignore */
-SetRef.prototype.inspect = function() {
-  return 'SetRef(' + JSON.stringify(this.value) + ')';
-};
+wrapToString(SetRef, function() {
+  return 'SetRef(' + stringify(this.value) + ')';
+});
 
 /** @ignore */
 SetRef.prototype.toJSON = function() {
@@ -7107,6 +7227,10 @@ util.inherits(FaunaTime, Value);
 Object.defineProperty(FaunaTime.prototype, 'date', { get: function() {
   return new Date(this.value);
 } });
+
+wrapToString(FaunaTime, function() {
+  return 'Time("' + this.value + '")';
+});
 
 /** @ignore */
 FaunaTime.prototype.toJSON = function() {
@@ -7143,6 +7267,10 @@ Object.defineProperty(FaunaDate.prototype, 'date', { get: function() {
   return new Date(this.value);
 } });
 
+wrapToString(FaunaDate, function() {
+  return 'Date("' + this.value + '")';
+});
+
 /** @ignore */
 FaunaDate.prototype.toJSON = function()  {
   return { '@date': this.value };
@@ -7164,16 +7292,15 @@ function Bytes(value) {
   } else if (value instanceof Uint8Array) {
     this.value = value;
   } else {
-    throw new errors.InvalidValue('Bytes type expect argument to be either Uint8Array|ArrayBuffer|string, got: ' + JSON.stringify(value));
+    throw new errors.InvalidValue('Bytes type expect argument to be either Uint8Array|ArrayBuffer|string, got: ' + stringify(value));
   }
 }
 
 util.inherits(Bytes, Value);
 
-/** @ignore */
-Bytes.prototype.inspect = function() {
+wrapToString(Bytes, function() {
   return 'Bytes("' + base64.fromByteArray(this.value) + '")';
-};
+});
 
 /** @ignore */
 Bytes.prototype.toJSON = function()  {
@@ -7192,15 +7319,24 @@ function Query(value) {
 
 util.inherits(Query, Value);
 
-/** @ignore */
-Query.prototype.inspect = function() {
-  return 'Query("' + this.value + '")';
-};
+wrapToString(Query, function() {
+  return 'Query(' + Expr.toString(this.value) + ')';
+});
 
 /** @ignore */
 Query.prototype.toJSON = function()  {
   return { '@query': this.value };
 };
+
+/** @ignore */
+function wrapToString(type, fn) {
+  type.prototype.toString = fn;
+  type.prototype.inspect = fn;
+
+  if (customInspect) {
+    type.prototype[customInspect] = fn;
+  }
+}
 
 module.exports = {
   Value: Value,
