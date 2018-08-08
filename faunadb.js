@@ -4488,6 +4488,7 @@ function Client(options) {
   this._timeout = Math.floor(opts.timeout * 1000);
   this._secret = opts.secret;
   this._observer = opts.observer;
+  this._lastSeen = null;
 }
 
 /**
@@ -4548,6 +4549,16 @@ Client.prototype._execute = function (action, path, data, query) {
       response.text, responseObject, response.status, response.header,
       startTime, endTime);
 
+    if ('x-last-seen-txn' in response.header) {
+        var time = parseInt(response.header['x-last-seen-txn'], 10);
+
+        if (self._lastSeen == null) {
+            self._lastSeen = time;
+        } else if (self._lastSeen < time) {
+            self._lastSeen = time;
+        }
+    }
+
     if (self._observer != null) {
       self._observer(requestResult);
     }
@@ -4569,6 +4580,10 @@ Client.prototype._performRequest = function (action, path, data, query) {
 
   if (this._secret) {
     rq.set('Authorization', secretHeader(this._secret));
+  }
+
+  if (this._lastSeen) {
+    rq.set('X-Last-Seen-Txn', this._lastSeen);
   }
 
   rq.set('X-FaunaDB-API-Version', '2.1');
@@ -4659,7 +4674,10 @@ var exprToString = function(expr, caller) {
 
   fn = fn.split('_').map(function(str) { return str.charAt(0).toUpperCase() + str.slice(1); }).join('');
 
-  var args = Object.values(expr).map(function(v) { return exprToString(v, fn)}).join(', ');
+  var args = keys.map(function(k) {
+    var v = expr[k];
+    return exprToString(v, fn)
+  }).join(', ');
   return fn + '(' + args + ')';
 };
 
