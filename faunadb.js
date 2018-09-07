@@ -4651,11 +4651,19 @@ var exprToString = function(expr, caller) {
   if (expr instanceof Expr)
     expr = expr.raw;
 
-  if (typeof expr === 'string')
+  var type = typeof expr;
+
+  if (type === 'string')
     return '"' + expr + '"';
 
-  if (typeof expr === 'number')
+  if (type === 'symbol' || type === 'number' || type === 'boolean')
     return expr.toString();
+
+  if (type === 'undefined')
+    return 'undefined';
+
+  if (expr === null)
+    return 'null';
 
   if (Array.isArray(expr)) {
     var array = expr.map(function(item) { return exprToString(item); }).join(', ');
@@ -5643,7 +5651,8 @@ function If(condition, then, _else) {
  * */
 function Do() {
   arity.min(1, arguments);
-  return new Expr({ do: wrap(varargs(arguments)) });
+  var args = argsToArray(arguments);
+  return new Expr({ do: wrap(args) });
 }
 
 /** See the [docs](https://fauna.com/documentation/queries#basic_forms).
@@ -6902,6 +6911,10 @@ function wrap(obj) {
     return null;
   } else if (obj instanceof Expr) {
     return obj;
+  } else if (typeof obj === 'symbol') {
+    return obj.toString().replace(/Symbol\((.*)\)/, function(str, symbol) {
+      return symbol;
+    });
   } else if (typeof obj === 'function') {
     return Lambda(obj);
   } else if (Array.isArray(obj)) {
