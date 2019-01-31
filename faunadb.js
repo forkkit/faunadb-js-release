@@ -4530,6 +4530,31 @@ Client.prototype.ping = function (scope, timeout) {
   return this._execute('GET', 'ping', null, { scope: scope, timeout: timeout });
 };
 
+/**
+ * Get the freshest timestamp reported to this client.
+ * @returns {number} the last seen transaction time
+ */
+Client.prototype.getLastTxnTime = function() {
+  return this._lastSeen;
+};
+
+/**
+  * Sync the freshest timestamp seen by this client.
+  *
+  * This has no effect if staler than currently stored timestamp.
+  * WARNING: This should be used only when coordinating timestamps across
+  *          multiple clients. Moving the timestamp arbitrarily forward into
+  *          the future will cause transactions to stall.
+ * @param time {number} the last seen transaction time
+ */
+Client.prototype.syncLastTxnTime = function(time) {
+  if (this._lastSeen == null) {
+    this._lastSeen = time;
+  } else if (this._lastSeen < time) {
+      this._lastSeen = time;
+  }
+};
+
 Client.prototype._execute = function (action, path, data, query) {
   query = defaults(query, null);
 
@@ -4552,14 +4577,9 @@ Client.prototype._execute = function (action, path, data, query) {
       response.text, responseObject, response.status, response.header,
       startTime, endTime);
 
-    if ('x-last-seen-txn' in response.header) {
-        var time = parseInt(response.header['x-last-seen-txn'], 10);
-
-        if (self._lastSeen == null) {
-            self._lastSeen = time;
-        } else if (self._lastSeen < time) {
-            self._lastSeen = time;
-        }
+    if ('x-txn-time' in response.header) {
+      var time = parseInt(response.header['x-txn-time'], 10);
+      self.syncLastTxnTime(time);
     }
 
     if (self._observer != null) {
@@ -4641,7 +4661,10 @@ Expr.prototype.toJSON = function() {
   return this.raw;
 };
 
-var varArgsFunctions = ['Do', 'Call', 'Union', 'Intersection', 'Difference', 'Equals', 'Add', 'Multiply', 'Subtract', 'Divide', 'Modulo', 'LT', 'LTE', 'GT', 'GTE', 'And', 'Or'];
+var varArgsFunctions = ['Do', 'Call', 'Union', 'Intersection', 'Difference', 'Equals',
+                        'Add', 'BitAnd', 'BitOr', 'BitXor',  'Divide', 'Max', 'Min',
+                        'Modulo', 'Multiply', 'Round', 'Subtract', 'Trunc', 'Hypot', 'Pow',
+                        'LT', 'LTE', 'GT', 'GTE', 'And', 'Or'];
 var specialCases = {
   is_nonempty: 'is_non_empty',
   lt: 'LT',
@@ -5519,7 +5542,7 @@ var objectAssign = require('object-assign');
 /**
  * This module contains functions used to construct FaunaDB Queries.
  *
- * See the [FaunaDB Query API Documentation](https://fauna.com/documentation/queries)
+ * See the [FaunaDB Query API Documentation](https://app.fauna.com/documentation/reference/queryapi)
  * for per-function documentation.
  *
  * @module query
@@ -5604,14 +5627,20 @@ function At(timestamp, expr) {
  * */
 function Let(vars, in_expr) {
   arity.exact(2, arguments);
+  var expr = in_expr;
+  var bindings = Object.keys(vars).map(function (k) {
+    var b = {};
+    b[k] = wrap(vars[k]);
+    return b;
+  });
 
-  if (typeof in_expr === 'function') {
-    in_expr = in_expr.apply(null, Object.keys(vars).map(function(name) {
+  if (typeof expr === 'function') {
+    expr = expr.apply(null, Object.keys(vars).map(function(name) {
       return Var(name);
     }));
   }
 
-  return new Expr({ let: wrapValues(vars), in: wrap(in_expr) });
+  return new Expr({ let: bindings, in: wrap(expr) });
 }
 
 /**
@@ -6303,11 +6332,9 @@ function HasIdentity() {
 /**
  * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
- * @param {module:query~ExprArg} strings
- *   A list of strings to concatenate.
- * @param {?module:query~ExprArg} separator
- *   The separator to use between each string.
- * @return {Expr}
+ * @param {string} strings - A list of strings to concatenate.
+ * @param {string} separator  - The separator to use between each string.
+ * @return {string} a single combined string
  */
 function Concat(strings, separator) {
   arity.min(1, arguments);
@@ -6318,11 +6345,9 @@ function Concat(strings, separator) {
 /**
  * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
- * @param {module:query~ExprArg} string
- *   The string to casefold.
- * @param {module:query~ExprArg} normalizer
- *   The algorithm to use. One of: NFKCCaseFold, NFC, NFD, NFKC, NFKD.
- * @return {Expr}
+ * @param {string} string - The string to casefold.
+ * @param {string} normalizer - The algorithm to use. One of: NFKCCaseFold, NFC, NFD, NFKC, NFKD.
+ * @return {string} a normalized string
  */
 function Casefold(string, normalizer) {
   arity.min(1, arguments);
@@ -6332,13 +6357,147 @@ function Casefold(string, normalizer) {
 /**
  * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
+ * @param {string} value - A string to search.
+ * @param {string} find - Find the first position of this string in the search string
+ * @param {int} start - An optional start offset into the search string
+ * @return {int} location of the found string or -1 if not found
+ */
+function FindStr(value, find, start) {
+  arity.between(2, 3, arguments);
+  start = defaults(start, null);
+  return new Expr(params({ findstr: wrap(value) }, { find: wrap(find) }, { start: wrap(start) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ *
+ * @param {string} value - A string to search.
+ * @param {string} pattern - Find the first position of this pattern in the search string using a java regular expression syntax
+ * @param {int} start - An optional start offset into the search string
+ * @param {int} numResults - An optional number of results to return, max 1024
+ * @return {Array} an array of object describing where the search pattern was located
+ */
+function FindStrRegex(value, pattern, start, numResults) {
+  arity.between(2, 4, arguments);
+  start = defaults(start, null);
+  return new Expr(params({ findstrregex: wrap(value) }, { pattern: wrap(pattern) }, { start: wrap(start) }, { num_results: wrap(numResults) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ *
+ * @param {string} value - The string to calculate the length in codepoints.
+ * @return {int} the length of the string in codepoints
+ */
+function Length(value) {
+  arity.exact(1, arguments);
+  return new Expr(params({ length: wrap(value) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ *
+ * @param {string} value - The string to LowerCase.
+ * @return {string} the string converted to lowercase
+ */
+function LowerCase(value) {
+  arity.exact(1, arguments);
+  return new Expr(params({ lowercase: wrap(value) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ *
+ * @param {string} value - The string to trim leading white space.
+ * @return {string} the string with leading white space removed
+ */
+function LTrim(value) {
+  arity.exact(1, arguments);
+  return new Expr(params({ ltrim: wrap(value) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   A string to search.
+ * @param {...module:query~ExprArg} terms
+ *   Find the first position of this string in the search string
+ * @param {...module:query~ExprArg} terms
+ *   An optional start offset into the search string
+ * @return {Expr}
+ */
+function FindStr(value, find, start) {
+  arity.between(2, 3, arguments);
+  start = defaults(start, null);
+  return new Expr(params({ findstr: wrap(value) }, { find: wrap(find) }, { start: wrap(start) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   A string to search.
+ * @param {...module:query~ExprArg} terms
+ *   Find the first position of this string in the search string
+ * @param {...module:query~ExprArg} terms
+ *   An optional start offset into the search string
+ * @param {...module:query~ExprArg} terms
+ *   An optional number of results to return, max 1024
+ * @return {Expr}
+ */
+function FindStrRegex(value, pattern, start, numResults) {
+  arity.between(2, 4, arguments);
+  start = defaults(start, null);
+  return new Expr(params({ findstrregex: wrap(value) }, { pattern: wrap(pattern) }, { start: wrap(start) }, { num_results: wrap(numResults) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
+ *
+ * @param {module:query~ExprArg} string
+ *   The string to calculate the length in codepoints.
+ * @return {Expr}
+ */
+function Length(expr) {
+  arity.exact(1, arguments);
+  return new Expr(params({ length: wrap(expr) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
+ *
+ * @param {module:query~ExprArg} string
+ *   The string to LowerCase.
+ * @return {Expr}
+ */
+function LowerCase(expr) {
+  arity.exact(1, arguments);
+  return new Expr(params({ lowercase: wrap(expr) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
+ *
+ * @param {module:query~ExprArg} string
+ *   The string to LowerCase.
+ * @return {Expr}
+ */
+function LTrim(expr) {
+  arity.exact(1, arguments);
+  return new Expr(params({ ltrim: wrap(expr) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
+ *
  * @param {module:query~ExprArg} terms
  *   A document from which to produce ngrams.
  * @param {?Object} opts
  *   An object of options
  *     - min: The minimum ngram size.
  *     - max: The maximum ngram size.
- * @return {Expr}
+ * @return {Array|Value}
  */
 function NGram(terms, min, max) {
   arity.between(1, 3, arguments);
@@ -6348,12 +6507,245 @@ function NGram(terms, min, max) {
   return new Expr(params({ ngram: wrap(terms) }, { min: wrap(min), max: wrap(max) }));
 }
 
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ *
+ * @param {string} value - A string to repeat.
+ * @param {int} number - The number of times to repeat the string
+ * @return {string} a string which was repeated
+ */
+function Repeat(value, number) {
+  arity.between(1, 2, arguments);
+  number = defaults(number, null);
+  return new Expr(params({ repeat: wrap(value) }, { number: wrap(number) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ *
+ * @param {string} value - A string to search.
+ * @param {string} find - The string to find in the search string
+ * @param {string} replace - The string to replace in the search string
+ * @return {String} all the occurrences of find substituted with replace string
+ */
+function ReplaceStr(value, find, replace) {
+  arity.exact(3, arguments);
+  return new Expr(params({ replacestr: wrap(value) }, params({ find: wrap(find) }, { replace: wrap(replace) })));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ *
+ * @param {string} value - A string to search.
+ * @param {string} pattern - The pattern to find in the search string using a java regular expression syntax
+ * @param {string} replace - The string to replace in the search string
+ * @param {boolean} first - Replace all or just the first
+ * @return {string} all the occurrences of find pattern substituted with replace string
+ */
+function ReplaceStrRegex(value, pattern, replace, first) {
+  arity.between(3, 4, arguments);
+  first = defaults(first, null);
+  return new Expr(params({ replacestrregex: wrap(value) }, params( params({ pattern: wrap(pattern) }, { replace: wrap(replace) }), { first: wrap(first) }) ));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ *
+ * @param {string} value - The string to remove white space from the end.
+ * @return {string} the string with trailing whitespaces removed
+ */
+function RTrim(value) {
+  arity.exact(1, arguments);
+  return new Expr(params({ rtrim: wrap(value) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ *
+ * @param {int} num - The string of N Space(s).
+ * @return {string} a string with spaces
+ */
+function Space(num) {
+  arity.exact(1, arguments);
+  return new Expr(params({ space: wrap(num) }));
+}
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ *
+ * @param {string} value  The string to SubString.
+ * @param {int} start  The position the first character of the return string begins at
+ * @param {int} length  An optional length, if omitted then returns to the end of string
+ * @return {string}
+ */
+function SubString(value, start, length) {
+  arity.between(1, 3, arguments);
+  start = defaults(start, null);
+  length = defaults(length, null);
+  return new Expr(params({ substring: wrap(value) }, params({ start: wrap(start) }, { length: wrap(length) } )));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ *
+ * @param {string} value - The string to TitleCase.
+ * @return {string}  A string converted to titlecase
+ */
+function TitleCase(value) {
+  arity.exact(1, arguments);
+  return new Expr(params({ titlecase: wrap(value) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ *
+ * @param {string} value - The string to Trim.
+ * @return {string} a string with leading and trailing whitespace removed
+ */
+function Trim(value) {
+  arity.exact(1, arguments);
+  return new Expr(params({ trim: wrap(value) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ *
+ * @param {string} value - The string to Uppercase.
+ * @return {string} An uppercase string
+ */
+function UpperCase(value) {
+  arity.exact(1, arguments);
+  return new Expr(params({ uppercase: wrap(value) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   A string to repeat.
+ * @param {...module:query~ExprArg} terms
+ *   The number of times to repeat the string
+ * @return {Expr}
+ */
+function Repeat(value, number) {
+  arity.between(1, 2, arguments);
+  number = defaults(number, null);
+  return new Expr(params({ repeat: wrap(value) }, { number: wrap(number) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   A string to search.
+ * @param {...module:query~ExprArg} terms
+ *   The string to find in the search string
+ * @param {...module:query~ExprArg} terms
+ *   The string to replace in the search string
+ * @return {Expr}
+ */
+function ReplaceStr(value, find, replace) {
+  arity.exact(3, arguments);
+  return new Expr(params({ replacestr: wrap(value) }, params({ find: wrap(find) }, { replace: wrap(replace) })));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   A string to search.
+ * @param {...module:query~ExprArg} terms
+ *   The pattern to find in the search string
+ * @param {...module:query~ExprArg} terms
+ *   The string to replace in the search string
+ * @param {...module:query~ExprArg} terms
+ *   replace all or just the first
+ * @return {Expr}
+ */
+function ReplaceStrRegex(value, pattern, replace, first) {
+  arity.between(3, 4, arguments);
+  first = defaults(first, null);
+  return new Expr(params({ replacestrregex: wrap(value) }, params( params({ pattern: wrap(pattern) }, { replace: wrap(replace) }), { first: wrap(first) }) ));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
+ *
+ * @param {module:query~ExprArg} string
+ *   The string to remove white space from the end.
+ * @return {Expr}
+ */
+function RTrim(expr) {
+  arity.exact(1, arguments);
+  return new Expr(params({ rtrim: wrap(expr) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
+ *
+ * @param {module:query~ExprArg} string
+ *   The string to Space.
+ * @return {Expr}
+ */
+function Space(expr) {
+  arity.exact(1, arguments);
+  return new Expr(params({ space: wrap(expr) }));
+}
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
+ *
+ * @param {module:query~ExprArg} string
+ *   The string to SubString.
+ * @return {Expr}
+ */
+function SubString(value, start, length) {
+  arity.between(1, 3, arguments);
+  start = defaults(start, null);
+  length = defaults(length, null);
+  return new Expr(params({ substring: wrap(value) }, params({ start: wrap(start) }, { length: wrap(length) } )));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
+ *
+ * @param {module:query~ExprArg} string
+ *   The string to TitleCase.
+ * @return {Expr}
+ */
+function TitleCase(expr) {
+  arity.exact(1, arguments);
+  return new Expr(params({ titlecase: wrap(expr) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
+ *
+ * @param {module:query~ExprArg} string
+ *   The string to Trim.
+ * @return {Expr}
+ */
+function Trim(expr) {
+  arity.exact(1, arguments);
+  return new Expr(params({ trim: wrap(expr) }));
+}
+
+/**
+ * See the [docs](https://fauna.com/documentation/queries#string_functions).
+ *
+ * @param {module:query~ExprArg} string
+ *   The string to Uppercase.
+ * @return {Expr}
+ */
+function UpperCase(expr) {
+  arity.exact(1, arguments);
+  return new Expr(params({ uppercase: wrap(expr) }));
+}
+
 // Time and date functions
 /**
  * See the [docs](https://app.fauna.com/documentation/reference/queryapi#time-and-date).
  *
  * @param {module:query~ExprArg} string
- *   A string to convert to a time object.
+ *   A string to converted to a time object.
  * @return {Expr}
  */
 function Time(string) {
@@ -6644,7 +7036,19 @@ function SelectAll(path, from) {
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   A numbers to provide the absolute value.
+ * @return {Expr}
+ */
+function Abs(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ abs: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
  *
  * @param {...module:query~ExprArg} terms
  *   A collection of numbers to sum together.
@@ -6656,31 +7060,67 @@ function Add() {
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
  *
  * @param {...module:query~ExprArg} terms
- *   A collection of numbers to multiply together.
+ *   A collection of numbers to bitwise and together.
  * @return {Expr}
  */
-function Multiply() {
+function BitAnd() {
   arity.min(1, arguments);
-  return new Expr({ multiply: wrap(varargs(arguments)) });
+  return new Expr({ bitand: wrap(varargs(arguments)) });
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
  *
  * @param {...module:query~ExprArg} terms
- *   A collection of numbers to compute the difference of.
+ *   A numbers to provide the bitwise not.
  * @return {Expr}
  */
-function Subtract() {
-  arity.min(1, arguments);
-  return new Expr({ subtract: wrap(varargs(arguments)) });
+function BitNot(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ bitnot: wrap(expr) });
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   A collection of numbers to bitwise Or'd together.
+ * @return {Expr}
+ */
+function BitOr() {
+  arity.min(1, arguments);
+  return new Expr({ bitor: wrap(varargs(arguments)) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   A collection of numbers to bitwise Xor'd together.
+ * @return {Expr}
+ */
+function BitXor() {
+  arity.min(1, arguments);
+  return new Expr({ bitxor: wrap(varargs(arguments)) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   The least integer that is greater than or equal to the number
+ * @return {Expr}
+ */
+function Ceil(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ ceil: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
  *
  * @param {...module:query~ExprArg} terms
  *   A collection of numbers to compute the quotient of.
@@ -6692,7 +7132,43 @@ function Divide() {
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#misc_functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   The greatest integer that is less than or equal to the number
+ * @return {Expr}
+ */
+function Floor(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ floor: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   A collection of numbers to multiply together.
+ * @return {Expr}
+ */
+function Max() {
+  arity.min(1, arguments);
+  return new Expr({ max: wrap(varargs(arguments)) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   A collection of numbers to multiply together.
+ * @return {Expr}
+ */
+function Min() {
+  arity.min(1, arguments);
+  return new Expr({ min: wrap(varargs(arguments)) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
  *
  * @param {...module:query~ExprArg} terms
  *   A collection of numbers to compute the quotient of. The remainder will be returned.
@@ -6701,6 +7177,282 @@ function Divide() {
 function Modulo() {
   arity.min(1, arguments);
   return new Expr({ modulo: wrap(varargs(arguments)) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   A collection of numbers to multiply together.
+ * @return {Expr}
+ */
+function Multiply() {
+  arity.min(1, arguments);
+  return new Expr({ multiply: wrap(varargs(arguments)) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   A numbers to round.
+ * @param {...module:query~ExprArg} terms
+ *   An optional precision
+ * @return {Expr}
+ */
+function Round(value, precision) {
+  arity.min(1, arguments);
+  precision = defaults(precision, null);
+  return new Expr(params({ round: wrap(value) }, { precision: wrap(precision) }));
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   A collection of numbers to compute the difference of.
+ * @return {Expr}
+ */
+function Subtract() {
+  arity.min(1, arguments);
+  return new Expr({ subtract: wrap(varargs(arguments)) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   The sign of the number is returned as positive 1, zero 0 , negative -1
+ * @return {Expr}
+ */
+function Sign(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ sign: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   The square root of the number
+ * @return {Expr}
+ */
+function Sqrt(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ sqrt: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   A numbers to truncate.
+ * @param {...module:query~ExprArg} terms
+ *   An optional precision
+ * @return {Expr}
+ */
+function Trunc(value, precision) {
+  arity.min(1, arguments);
+  precision = defaults(precision, null);
+  return new Expr(params({ trunc: wrap(value) }, { precision: wrap(precision) }));
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   The arc cosine of the number
+ * @return {Expr}
+ */
+function Acos(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ acos: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   The arc sine of the number
+ * @return {Expr}
+ */
+function Asin(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ asin: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   The arc tangent of the number
+ * @return {Expr}
+ */
+function Atan(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ atan: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   The cosine of a number
+ * @return {Expr}
+ */
+function Cos(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ cos: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   The hyperbolic cosine of the number
+ * @return {Expr}
+ */
+function Cosh(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ cosh: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   Take radians and convert it to degrees 360 degrees = 2 * pi radians
+ * @return {Expr}
+ */
+function Degrees(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ degrees: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   The e raised to an exponent number
+ * @return {Expr}
+ */
+function Exp(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ exp: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   A side of the right triangle
+ * @param {...module:query~ExprArg} terms
+ *   The second side of a right triange, defaults to the first side
+ * @return {Expr}
+ */
+function Hypot(value, side) {
+  arity.min(1, arguments);
+  side = defaults(side, null);
+  return new Expr(params({ hypot: wrap(value) }, { b: wrap(side) }));
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   The natural log of the number
+ * @return {Expr}
+ */
+function Ln(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ ln: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   The log base 10 of a number
+ * @return {Expr}
+ */
+function Log(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ log: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   A numbers to raise to the power.
+ * @param {...module:query~ExprArg} terms
+ *   An optional exponent
+ * @return {Expr}
+ */
+function Pow(value, exponent) {
+  arity.min(1, arguments);
+  exponent = defaults(exponent, null);
+  return new Expr(params({ pow: wrap(value) }, { exp: wrap(exponent) }));
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   Take degrees and convert the number to radians 2 * pi = 360 degrees
+ * @return {Expr}
+ */
+function Radians(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ radians: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   The sine of a number
+ * @return {Expr}
+ */
+function Sin(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ sin: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   The hyperbolic sine of a number
+ * @return {Expr}
+ */
+function Sinh(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ sinh: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   The Tangent of a number
+ * @return {Expr}
+ */
+function Tan(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ tan: wrap(expr) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#mathematical-functions).
+ *
+ * @param {...module:query~ExprArg} terms
+ *   The hyberbolic tangent of a number
+ * @return {Expr}
+ */
+function Tanh(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ tanh: wrap(expr) });
 }
 
 /**
@@ -7005,7 +7757,21 @@ module.exports = {
   HasIdentity: HasIdentity,
   Concat: Concat,
   Casefold: Casefold,
+  FindStr: FindStr,
+  FindStrRegex: FindStrRegex,
+  Length: Length,
+  LowerCase: LowerCase,
+  LTrim: LTrim,
   NGram: NGram,
+  Repeat: Repeat,
+  ReplaceStr: ReplaceStr,
+  ReplaceStrRegex: ReplaceStrRegex,
+  RTrim: RTrim,
+  Space: Space,
+  SubString: SubString,
+  TitleCase: TitleCase,
+  Trim: Trim,
+  UpperCase: UpperCase,
   Time: Time,
   Epoch: Epoch,
   Date: Date,
@@ -7026,11 +7792,40 @@ module.exports = {
   Contains: Contains,
   Select: Select,
   SelectAll: SelectAll,
+  Abs: Abs,
   Add: Add,
-  Multiply: Multiply,
-  Subtract: Subtract,
+  BitAnd: BitAnd,
+  BitNot: BitNot,
+  BitOr: BitOr,
+  BitXor: BitXor,
+  Ceil: Ceil,
   Divide: Divide,
+  Floor: Floor,
+  Max: Max,
+  Min: Min,
   Modulo: Modulo,
+  Multiply: Multiply,
+  Round: Round,
+  Subtract: Subtract,
+  Sign: Sign,
+  Sqrt: Sqrt,
+  Trunc: Trunc,
+  Acos: Acos,
+  Asin: Asin,
+  Atan: Atan,
+  Cos: Cos,
+  Cosh: Cosh,
+  Degrees: Degrees,
+  Exp: Exp,
+  Hypot: Hypot,
+  Ln: Ln,
+  Log: Log,
+  Pow: Pow,
+  Radians: Radians,
+  Sin: Sin,
+  Sinh: Sinh,
+  Tan: Tan,
+  Tanh: Tanh,
   LT: LT,
   LTE: LTE,
   GT: GT,

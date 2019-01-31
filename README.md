@@ -13,13 +13,13 @@ Please, check https://github.com/fauna/faunadb-js for more information.
 ### CDN
 
 ```html
-<script src="//cdn.jsdelivr.net/faunadb/2.5.2/faunadb.js"></script>
+<script src="//cdn.jsdelivr.net/faunadb/2.6.0/faunadb.js"></script>
 ```
 
 The minified version is also available:
 
 ```html
-<script src="//cdn.jsdelivr.net/faunadb/2.5.2/faunadb-min.js"></script>
+<script src="//cdn.jsdelivr.net/faunadb/2.6.0/faunadb-min.js"></script>
 ```
 
 ### Usage
