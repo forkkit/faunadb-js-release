@@ -289,6 +289,13 @@ Emitter.prototype.removeEventListener = function(event, fn){
       break;
     }
   }
+
+  // Remove event specific arrays for event types that no
+  // one is subscribed for to avoid memory leak.
+  if (callbacks.length === 0) {
+    delete this._callbacks['$' + event];
+  }
+
   return this;
 };
 
@@ -302,8 +309,13 @@ Emitter.prototype.removeEventListener = function(event, fn){
 
 Emitter.prototype.emit = function(event){
   this._callbacks = this._callbacks || {};
-  var args = [].slice.call(arguments, 1)
+
+  var args = new Array(arguments.length - 1)
     , callbacks = this._callbacks['$' + event];
+
+  for (var i = 1; i < arguments.length; i++) {
+    args[i - 1] = arguments[i];
+  }
 
   if (callbacks) {
     callbacks = callbacks.slice(0);
@@ -347,7 +359,7 @@ Emitter.prototype.hasListeners = function(event){
  * @copyright Copyright (c) 2014 Yehuda Katz, Tom Dale, Stefan Penner and contributors (Conversion to ES6 API by Jake Archibald)
  * @license   Licensed under MIT license
  *            See https://raw.githubusercontent.com/stefanpenner/es6-promise/master/LICENSE
- * @version   v4.2.6+9869a4bc
+ * @version   v4.2.8+1e68dce6
  */
 
 (function (global, factory) {
@@ -578,23 +590,12 @@ var PENDING = void 0;
 var FULFILLED = 1;
 var REJECTED = 2;
 
-var TRY_CATCH_ERROR = { error: null };
-
 function selfFulfillment() {
   return new TypeError("You cannot resolve a promise with itself");
 }
 
 function cannotReturnOwn() {
   return new TypeError('A promises callback cannot return that same promise.');
-}
-
-function getThen(promise) {
-  try {
-    return promise.then;
-  } catch (error) {
-    TRY_CATCH_ERROR.error = error;
-    return TRY_CATCH_ERROR;
-  }
 }
 
 function tryThen(then$$1, value, fulfillmentHandler, rejectionHandler) {
@@ -652,10 +653,7 @@ function handleMaybeThenable(promise, maybeThenable, then$$1) {
   if (maybeThenable.constructor === promise.constructor && then$$1 === then && maybeThenable.constructor.resolve === resolve$1) {
     handleOwnThenable(promise, maybeThenable);
   } else {
-    if (then$$1 === TRY_CATCH_ERROR) {
-      reject(promise, TRY_CATCH_ERROR.error);
-      TRY_CATCH_ERROR.error = null;
-    } else if (then$$1 === undefined) {
+    if (then$$1 === undefined) {
       fulfill(promise, maybeThenable);
     } else if (isFunction(then$$1)) {
       handleForeignThenable(promise, maybeThenable, then$$1);
@@ -669,7 +667,14 @@ function resolve(promise, value) {
   if (promise === value) {
     reject(promise, selfFulfillment());
   } else if (objectOrFunction(value)) {
-    handleMaybeThenable(promise, value, getThen(value));
+    var then$$1 = void 0;
+    try {
+      then$$1 = value.then;
+    } catch (error) {
+      reject(promise, error);
+      return;
+    }
+    handleMaybeThenable(promise, value, then$$1);
   } else {
     fulfill(promise, value);
   }
@@ -748,31 +753,18 @@ function publish(promise) {
   promise._subscribers.length = 0;
 }
 
-function tryCatch(callback, detail) {
-  try {
-    return callback(detail);
-  } catch (e) {
-    TRY_CATCH_ERROR.error = e;
-    return TRY_CATCH_ERROR;
-  }
-}
-
 function invokeCallback(settled, promise, callback, detail) {
   var hasCallback = isFunction(callback),
       value = void 0,
       error = void 0,
-      succeeded = void 0,
-      failed = void 0;
+      succeeded = true;
 
   if (hasCallback) {
-    value = tryCatch(callback, detail);
-
-    if (value === TRY_CATCH_ERROR) {
-      failed = true;
-      error = value.error;
-      value.error = null;
-    } else {
-      succeeded = true;
+    try {
+      value = callback(detail);
+    } catch (e) {
+      succeeded = false;
+      error = e;
     }
 
     if (promise === value) {
@@ -781,14 +773,13 @@ function invokeCallback(settled, promise, callback, detail) {
     }
   } else {
     value = detail;
-    succeeded = true;
   }
 
   if (promise._state !== PENDING) {
     // noop
   } else if (hasCallback && succeeded) {
     resolve(promise, value);
-  } else if (failed) {
+  } else if (succeeded === false) {
     reject(promise, error);
   } else if (settled === FULFILLED) {
     fulfill(promise, value);
@@ -866,7 +857,15 @@ var Enumerator = function () {
 
 
     if (resolve$$1 === resolve$1) {
-      var _then = getThen(entry);
+      var _then = void 0;
+      var error = void 0;
+      var didError = false;
+      try {
+        _then = entry.then;
+      } catch (e) {
+        didError = true;
+        error = e;
+      }
 
       if (_then === then && entry._state !== PENDING) {
         this._settledAt(entry._state, i, entry._result);
@@ -875,7 +874,11 @@ var Enumerator = function () {
         this._result[i] = entry;
       } else if (c === Promise$1) {
         var promise = new c(noop);
-        handleMaybeThenable(promise, entry, _then);
+        if (didError) {
+          reject(promise, error);
+        } else {
+          handleMaybeThenable(promise, entry, _then);
+        }
         this._willSettleAt(promise, i);
       } else {
         this._willSettleAt(new c(function (resolve$$1) {
@@ -1527,7 +1530,7 @@ return Promise$1;
 
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":9}],6:[function(require,module,exports){
+},{"_process":8}],6:[function(require,module,exports){
 'use strict';
 
 module.exports = annotate;
@@ -1586,31 +1589,6 @@ function annotate(fn) {
 }
 
 },{}],7:[function(require,module,exports){
-if (typeof Object.create === 'function') {
-  // implementation from standard node.js 'util' module
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    ctor.prototype = Object.create(superCtor.prototype, {
-      constructor: {
-        value: ctor,
-        enumerable: false,
-        writable: true,
-        configurable: true
-      }
-    });
-  };
-} else {
-  // old school shim for old browsers
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    var TempCtor = function () {}
-    TempCtor.prototype = superCtor.prototype
-    ctor.prototype = new TempCtor()
-    ctor.prototype.constructor = ctor
-  }
-}
-
-},{}],8:[function(require,module,exports){
 /*
 object-assign
 (c) Sindre Sorhus
@@ -1702,7 +1680,7 @@ module.exports = shouldUseNative() ? Object.assign : function (target, source) {
 	return to;
 };
 
-},{}],9:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -1888,7 +1866,7 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],10:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 function Agent() {
   this._defaults = [];
 }
@@ -1910,7 +1888,7 @@ Agent.prototype._setDefaults = function(req) {
 
 module.exports = Agent;
 
-},{}],11:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 /**
  * Root reference for iframes.
  */
@@ -2832,7 +2810,7 @@ request.put = function(url, data, fn) {
   return req;
 };
 
-},{"./agent-base":10,"./is-object":12,"./request-base":13,"./response-base":14,"component-emitter":4}],12:[function(require,module,exports){
+},{"./agent-base":9,"./is-object":11,"./request-base":12,"./response-base":13,"component-emitter":4}],11:[function(require,module,exports){
 'use strict';
 
 /**
@@ -2849,7 +2827,7 @@ function isObject(obj) {
 
 module.exports = isObject;
 
-},{}],13:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 'use strict';
 
 /**
@@ -3545,7 +3523,7 @@ RequestBase.prototype._setTimeouts = function() {
   }
 };
 
-},{"./is-object":12}],14:[function(require,module,exports){
+},{"./is-object":11}],13:[function(require,module,exports){
 'use strict';
 
 /**
@@ -3683,7 +3661,7 @@ ResponseBase.prototype._setStatusProperties = function(status){
     this.unprocessableEntity = 422 == status;
 };
 
-},{"./utils":15}],15:[function(require,module,exports){
+},{"./utils":14}],14:[function(require,module,exports){
 'use strict';
 
 /**
@@ -3756,7 +3734,7 @@ exports.cleanHeader = function(header, changesOrigin){
   return header;
 };
 
-},{}],16:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 (function (global){
 
 /**
@@ -3827,6 +3805,31 @@ function config (name) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],16:[function(require,module,exports){
+if (typeof Object.create === 'function') {
+  // implementation from standard node.js 'util' module
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    ctor.prototype = Object.create(superCtor.prototype, {
+      constructor: {
+        value: ctor,
+        enumerable: false,
+        writable: true,
+        configurable: true
+      }
+    });
+  };
+} else {
+  // old school shim for old browsers
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    var TempCtor = function () {}
+    TempCtor.prototype = superCtor.prototype
+    ctor.prototype = new TempCtor()
+    ctor.prototype.constructor = ctor
+  }
+}
+
 },{}],17:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
@@ -4424,8 +4427,10 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":17,"_process":9,"inherits":7}],19:[function(require,module,exports){
+},{"./support/isBuffer":17,"_process":8,"inherits":16}],19:[function(require,module,exports){
 'use strict';
+
+var APIVersion = "2.7"
 
 var btoa = require('btoa-lite');
 var request = require('superagent');
@@ -4457,8 +4462,8 @@ var Promise = require('es6-promise').Promise;
  * FaunaDB types, such as {@link Ref}, {@link SetRef}, {@link FaunaTime}, and {@link FaunaDate} will
  * be converted into the appropriate object.
  *
- * (So if a response contains `{ "@ref": "classes/frogs/123" }`,
- * it will be returned as `new Ref("classes/frogs/123")`.)
+ * (So if a response contains `{ "@ref": "collections/frogs/123" }`,
+ * it will be returned as `new Ref("collections/frogs/123")`.)
  *
  * @constructor
  * @param {?Object} options
@@ -4475,6 +4480,7 @@ var Promise = require('es6-promise').Promise;
  *   Callback that will be called after every completed request.
  */
 function Client(options) {
+
   var opts = util.applyDefaults(options, {
     domain: 'db.fauna.com',
     scheme: 'https',
@@ -4605,7 +4611,11 @@ Client.prototype._performRequest = function (action, path, data, query) {
     rq.set('Authorization', secretHeader(this._secret));
   }
 
-  rq.set('X-FaunaDB-API-Version', '2.1');
+  if (this._lastSeen) {
+    rq.set('X-Last-Seen-Txn', this._lastSeen);
+  }
+
+  rq.set('X-FaunaDB-API-Version', APIVersion);
 
   rq.timeout(this._timeout);
 
@@ -4639,7 +4649,7 @@ function secretHeader(secret) {
 
 module.exports = Client;
 
-},{"./PageHelper":21,"./RequestResult":22,"./_json":23,"./_util":24,"./errors":26,"./query":27,"./values":28,"btoa-lite":3,"es6-promise":5,"superagent":11}],20:[function(require,module,exports){
+},{"./PageHelper":21,"./RequestResult":22,"./_json":23,"./_util":24,"./errors":26,"./query":27,"./values":28,"btoa-lite":3,"es6-promise":5,"superagent":10}],20:[function(require,module,exports){
 'use strict';
 
 /**
@@ -4659,7 +4669,7 @@ Expr.prototype.toJSON = function() {
 
 var varArgsFunctions = ['Do', 'Call', 'Union', 'Intersection', 'Difference', 'Equals',
                         'Add', 'BitAnd', 'BitOr', 'BitXor',  'Divide', 'Max', 'Min',
-                        'Modulo', 'Multiply', 'Round', 'Subtract', 'Trunc', 'Hypot', 'Pow',
+                        'Modulo', 'Multiply', 'Subtract',
                         'LT', 'LTE', 'GT', 'GTE', 'And', 'Or'];
 var specialCases = {
   is_nonempty: 'is_non_empty',
@@ -4687,17 +4697,36 @@ var exprToString = function(expr, caller) {
   if (expr === null)
     return 'null';
 
-  if (Array.isArray(expr)) {
-    var array = expr.map(function(item) { return exprToString(item); }).join(', ');
+  var printObject = function(obj) {
+    return '{' + Object.keys(obj).map(function(k) { return k + ': ' + exprToString(obj[k])}).join(', ') + '}';
+  };
 
-    return varArgsFunctions.includes(caller) ? array : '[' + array + ']';
+  var printArray = function(array, toStr) {
+    return array.map(function(item) { return toStr(item); }).join(', ');
+  };
+
+  if (Array.isArray(expr)) {
+    var array = printArray(expr, exprToString);
+
+    return varArgsFunctions.indexOf(caller) != -1 ? array : '[' + array + ']';
   }
+
+  if ('let' in expr && 'in' in expr) {
+    var letExpr = '';
+
+    if (Array.isArray(expr['let']))
+      letExpr = '[' + printArray(expr['let'], printObject) + ']';
+    else
+      letExpr = printObject(expr['let']);
+
+    return 'Let(' + letExpr + ', ' + exprToString(expr['in']) + ')';
+  }
+
+  if ('object' in expr)
+    return printObject(expr['object']);
 
   var keys = Object.keys(expr);
   var fn = keys[0];
-
-  if (fn === 'object')
-    return '{' + Object.keys(expr.object).map(function(k) { return k + ': ' + exprToString(expr.object[k])}).join(', ') + '}';
 
   if (fn in specialCases)
     fn = specialCases[fn];
@@ -4886,7 +4915,17 @@ PageHelper.prototype._adjustCursors = function(page) {
 PageHelper.prototype._consumePages = function(lambda, reverse) {
   var self = this;
   return function (page) {
-    lambda(page.data);
+    var data = []
+    page.data.forEach(function(item) {
+      if (item.document) {
+        item.instance = item.document;
+      }
+      if (item.value && item.value.document) {
+        item.value.instance = item.value.document;
+      }
+      data.push(item);
+    });
+    lambda(data);
 
     var nextCursor;
     if (reverse) {
@@ -4951,7 +4990,7 @@ PageHelper.prototype._clone = function() {
 
 module.exports = PageHelper;
 
-},{"./query":27,"es6-promise":5,"object-assign":8}],22:[function(require,module,exports){
+},{"./query":27,"es6-promise":5,"object-assign":7}],22:[function(require,module,exports){
 'use strict';
 
 /**
@@ -5073,14 +5112,14 @@ function json_parse(_, val) {
   } else if ('@ref' in val) {
     var ref = val['@ref'];
 
-    if (!('class' in ref) && !('database' in ref)) {
+    if (!('collection' in ref) && !('database' in ref)) {
       return values.Native.fromName(ref['id']);
     }
 
-    var cls = json_parse('class', ref['class']);
+    var col = json_parse('collection', ref['collection']);
     var db = json_parse('database', ref['database']);
 
-    return new values.Ref(ref['id'], cls, db);
+    return new values.Ref(ref['id'], col, db);
   } else if ('@obj' in val) {
     return val['@obj'];
   } else if ('@set' in val) {
@@ -5556,14 +5595,14 @@ var objectAssign = require('object-assign');
 
 /**
  * If one parameter is provided, constructs a literal Ref value.
- * The string `classes/widget/123` will be equivalent to `new values.Ref('123', new values.Ref('widget', values.Native.CLASSES))`
+ * The string `collections/widget/123` will be equivalent to `new values.Ref('123', new values.Ref('widget', values.Native.COLLECTIONS))`
  *
  * If two are provided, constructs a Ref() function that, when evaluated, returns a Ref value.
  *
  * @param {string|module:query~ExprArg} ref|cls
- *   Alone, the ref in path form. Combined with `id`, must be a class ref.
+ *   Alone, the ref in path form. Combined with `id`, must be a collection ref.
  * @param {module:query~ExprArg} [id]
- *   A numeric id of the given class.
+ *   A numeric id of the given collection.
  * @return {Expr}
  */
 function Ref() {
@@ -5621,19 +5660,38 @@ function At(timestamp, expr) {
  *   The expression to run with the given bindings.
  * @return {Expr}
  * */
-function Let(vars, in_expr) {
+function Let(vars, expr) {
   arity.exact(2, arguments);
-  var expr = in_expr;
-  var bindings = Object.keys(vars).map(function (k) {
-    var b = {};
-    b[k] = wrap(vars[k]);
-    return b;
-  });
+  var bindings = [];
+
+  if (Array.isArray(vars)) {
+    bindings = vars.map(function (item) {
+      return wrapValues(item);
+    });
+  } else {
+    bindings = Object.keys(vars).map(function (k) {
+      var b = {};
+      b[k] = wrap(vars[k]);
+      return b;
+    });
+  }
 
   if (typeof expr === 'function') {
-    expr = expr.apply(null, Object.keys(vars).map(function(name) {
-      return Var(name);
-    }));
+    if (Array.isArray(vars)) {
+      var expr_vars = [];
+
+      vars.forEach(function (item) {
+        Object.keys(item).forEach(function(name) {
+          expr_vars.push(Var(name));
+        });
+      });
+
+      expr = expr.apply(null, expr_vars);
+    } else {
+      expr = expr.apply(null, Object.keys(vars).map(function(name) {
+        return Var(name);
+      }));
+    }
   }
 
   return new Expr({ let: bindings, in: wrap(expr) });
@@ -5781,7 +5839,7 @@ function Call(ref) {
   arity.min(1, arguments);
   var args = argsToArray(arguments);
   args.shift();
-  return new Expr({ call: wrap(ref), arguments: varargs(args) });
+  return new Expr({ call: wrap(ref), arguments: wrap(varargs(args)) });
 }
 
 /**
@@ -5934,7 +5992,7 @@ function IsNonEmpty(collection) {
  * @param {module:query~ExprArg} ref
  *   An expression resulting in either a Ref or SetRef.
  * @param {?module:query~ExprArg} ts
- *   The snapshot time at which to get the instance.
+ *   The snapshot time at which to get the document.
  * @return {Expr}
  */
 function Get(ref, ts) {
@@ -5984,7 +6042,7 @@ function Paginate(set, opts) {
  * @param {module:query~ExprArg} ref
  *   An expression resulting in a Ref.
  * @param {?module:query~ExprArg} ts
- *   The snapshot time at which to check for the instance's existence.
+ *   The snapshot time at which to check for the document's existence.
  * @return {Expr}
  */
 function Exists(ref, ts) {
@@ -6000,14 +6058,14 @@ function Exists(ref, ts) {
  * See the [docs](https://app.fauna.com/documentation/reference/queryapi#write-functions).
  *
  * @param {module:query~ExprArg} ref
- *   The Ref (usually a ClassRef) to create.
+ *   The Ref (usually a CollectionRef) to create.
  * @param {?module:query~ExprArg} params
- *   An object representing the parameters of the instance.
+ *   An object representing the parameters of the document.
  * @return {Expr}
  */
-function Create(class_ref, params) {
+function Create(collection_ref, params) {
   arity.between(1, 2, arguments);
-  return new Expr({ create: wrap(class_ref), params: wrap(params) });
+  return new Expr({ create: wrap(collection_ref), params: wrap(params) });
 }
 
 /**
@@ -6016,7 +6074,7 @@ function Create(class_ref, params) {
  * @param {module:query~ExprArg} ref
  *   The Ref to update.
  * @param {module:query~ExprArg} params
- *   An object representing the parameters of the instance.
+ *   An object representing the parameters of the document.
  * @return {Expr}
  */
 function Update(ref, params) {
@@ -6030,7 +6088,7 @@ function Update(ref, params) {
  * @param {module:query~ExprArg} ref
  *   The Ref to replace.
  * @param {module:query~ExprArg} params
- *   An object representing the parameters of the instance.
+ *   An object representing the parameters of the document.
  * @return {Expr}
  */
 function Replace(ref, params) {
@@ -6060,7 +6118,7 @@ function Delete(ref) {
  * @param {module:query~ExprArg} action
  *   Whether the event should be a Create, Update, or Delete.
  * @param {module:query~ExprArg} params
- *   If this is a Create or Update, the parameters of the instance.
+ *   If this is a Create or Update, the parameters of the document.
  * @return {Expr}
  */
 function Insert(ref, ts, action, params) {
@@ -6072,7 +6130,7 @@ function Insert(ref, ts, action, params) {
  * See the [docs](https://app.fauna.com/documentation/reference/queryapi#write-functions).
  *
  * @param {module:query~ExprArg} ref
- *   The Ref of the instance whose event should be removed.
+ *   The Ref of the document whose event should be removed.
  * @param {module:query~ExprArg} ts
  *   The valid time of the event.
  * @param {module:query~ExprArg} action
@@ -6091,10 +6149,25 @@ function Remove(ref, ts, action) {
  *   An object of parameters used to create a class.
  *     - name (required): the name of the class to create
  * @return {Expr}
+ * 
+ * @deprecated use CreateCollection instead
  */
 function CreateClass(params) {
   arity.exact(1, arguments);
   return new Expr({ create_class: wrap(params) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#write-functions).
+ *
+ * @param {module:query~ExprArg} params
+ *   An object of parameters used to create a collection.
+ *     - name (required): the name of the collection to create
+ * @return {Expr}
+ */
+function CreateCollection(params) {
+  arity.exact(1, arguments);
+  return new Expr({ create_collection: wrap(params) });
 }
 
 /**
@@ -6116,7 +6189,7 @@ function CreateDatabase(params) {
  * @param {module:query~ExprArg} params
  *   An object of parameters used to create an index.
  *     - name (required): the name of the index to create
- *     - source: One or more source objects describing source classes and (optional) field bindings.
+ *     - source: One or more source objects describing source collections and (optional) field bindings.
  *     - terms: An array of term objects describing the fields to be indexed. Optional
  *     - values: An array of value objects describing the fields to be covered. Optional
  *     - unique: If true, maintains a uniqueness constraint on combined terms and values. Optional
@@ -6133,7 +6206,7 @@ function CreateIndex(params) {
  *
  * @param {module:query~ExprArg} params
  *   An object of parameters used to create a new key
- *     - database: Ref of the database the key will be scoped to
+ *     - database: Ref of the database the key will be scoped to. Optional.
  *     - role: The role of the new key
  * @return {Expr}
  */
@@ -6146,7 +6219,7 @@ function CreateKey(params) {
  * See the [docs](https://app.fauna.com/documentation/reference/queryapi#write-functions).
  *
  * @param {module:query~ExprArg} params
- *   An objet of parameters used to create a new user defined function.
+ *   An object of parameters used to create a new user defined function.
  *     - name: The name of the function
  *     - body: A lambda function (escaped with `query`).
  * @return {Expr}
@@ -6156,13 +6229,28 @@ function CreateFunction(params) {
   return new Expr({ create_function: wrap(params) });
 }
 
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#write-functions).
+ *
+ * @param {module:query~ExprArg} params
+ *   An object of parameters used to create a new role.
+ *     - name: The name of the role
+ *     - privileges: An array of privileges
+ *     - membership: An array of membership bindings
+ * @return {Expr}
+ */
+function CreateRole(params) {
+  arity.exact(1, arguments);
+  return new Expr({ create_role: wrap(params) });
+}
+
 // Sets
 
 /**
  * See the [docs](https://app.fauna.com/documentation/reference/queryapi#sets).
  *
  * @param {module:query~ExprArg} ref
- *   The Ref of the instance for which to retrieve the singleton set.
+ *   The Ref of the document for which to retrieve the singleton set.
  * @return {Expr}
  */
 function Singleton(ref) {
@@ -6361,11 +6449,11 @@ function Casefold(string, normalizer) {
 function FindStr(value, find, start) {
   arity.between(2, 3, arguments);
   start = defaults(start, null);
-  return new Expr(params({ findstr: wrap(value) }, { find: wrap(find) }, { start: wrap(start) }));
+  return new Expr(params({ findstr: wrap(value), find: wrap(find) }, { start: wrap(start) }));
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
  * @param {string} value - A string to search.
  * @param {string} pattern - Find the first position of this pattern in the search string using a java regular expression syntax
@@ -6376,116 +6464,44 @@ function FindStr(value, find, start) {
 function FindStrRegex(value, pattern, start, numResults) {
   arity.between(2, 4, arguments);
   start = defaults(start, null);
-  return new Expr(params({ findstrregex: wrap(value) }, { pattern: wrap(pattern) }, { start: wrap(start) }, { num_results: wrap(numResults) }));
+  return new Expr(params({ findstrregex: wrap(value), pattern: wrap(pattern) }, { start: wrap(start), num_results: wrap(numResults) }));
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
  * @param {string} value - The string to calculate the length in codepoints.
  * @return {int} the length of the string in codepoints
  */
 function Length(value) {
   arity.exact(1, arguments);
-  return new Expr(params({ length: wrap(value) }));
+  return new Expr({ length: wrap(value) });
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
  * @param {string} value - The string to LowerCase.
  * @return {string} the string converted to lowercase
  */
 function LowerCase(value) {
   arity.exact(1, arguments);
-  return new Expr(params({ lowercase: wrap(value) }));
+  return new Expr({ lowercase: wrap(value) });
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
  * @param {string} value - The string to trim leading white space.
  * @return {string} the string with leading white space removed
  */
 function LTrim(value) {
   arity.exact(1, arguments);
-  return new Expr(params({ ltrim: wrap(value) }));
+  return new Expr({ ltrim: wrap(value) });
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#string-functions).
- *
- * @param {...module:query~ExprArg} terms
- *   A string to search.
- * @param {...module:query~ExprArg} terms
- *   Find the first position of this string in the search string
- * @param {...module:query~ExprArg} terms
- *   An optional start offset into the search string
- * @return {Expr}
- */
-function FindStr(value, find, start) {
-  arity.between(2, 3, arguments);
-  start = defaults(start, null);
-  return new Expr(params({ findstr: wrap(value) }, { find: wrap(find) }, { start: wrap(start) }));
-}
-
-/**
- * See the [docs](https://fauna.com/documentation/queries#string_functions).
- *
- * @param {...module:query~ExprArg} terms
- *   A string to search.
- * @param {...module:query~ExprArg} terms
- *   Find the first position of this string in the search string
- * @param {...module:query~ExprArg} terms
- *   An optional start offset into the search string
- * @param {...module:query~ExprArg} terms
- *   An optional number of results to return, max 1024
- * @return {Expr}
- */
-function FindStrRegex(value, pattern, start, numResults) {
-  arity.between(2, 4, arguments);
-  start = defaults(start, null);
-  return new Expr(params({ findstrregex: wrap(value) }, { pattern: wrap(pattern) }, { start: wrap(start) }, { num_results: wrap(numResults) }));
-}
-
-/**
- * See the [docs](https://fauna.com/documentation/queries#string_functions).
- *
- * @param {module:query~ExprArg} string
- *   The string to calculate the length in codepoints.
- * @return {Expr}
- */
-function Length(expr) {
-  arity.exact(1, arguments);
-  return new Expr(params({ length: wrap(expr) }));
-}
-
-/**
- * See the [docs](https://fauna.com/documentation/queries#string_functions).
- *
- * @param {module:query~ExprArg} string
- *   The string to LowerCase.
- * @return {Expr}
- */
-function LowerCase(expr) {
-  arity.exact(1, arguments);
-  return new Expr(params({ lowercase: wrap(expr) }));
-}
-
-/**
- * See the [docs](https://fauna.com/documentation/queries#string_functions).
- *
- * @param {module:query~ExprArg} string
- *   The string to LowerCase.
- * @return {Expr}
- */
-function LTrim(expr) {
-  arity.exact(1, arguments);
-  return new Expr(params({ ltrim: wrap(expr) }));
-}
-
-/**
- * See the [docs](https://fauna.com/documentation/queries#string_functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
  * @param {module:query~ExprArg} terms
  *   A document from which to produce ngrams.
@@ -6504,7 +6520,7 @@ function NGram(terms, min, max) {
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
  * @param {string} value - A string to repeat.
  * @param {int} number - The number of times to repeat the string
@@ -6517,7 +6533,7 @@ function Repeat(value, number) {
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
  * @param {string} value - A string to search.
  * @param {string} find - The string to find in the search string
@@ -6526,11 +6542,11 @@ function Repeat(value, number) {
  */
 function ReplaceStr(value, find, replace) {
   arity.exact(3, arguments);
-  return new Expr(params({ replacestr: wrap(value) }, params({ find: wrap(find) }, { replace: wrap(replace) })));
+  return new Expr({ replacestr: wrap(value), find: wrap(find), replace: wrap(replace) });
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
  * @param {string} value - A string to search.
  * @param {string} pattern - The pattern to find in the search string using a java regular expression syntax
@@ -6541,32 +6557,32 @@ function ReplaceStr(value, find, replace) {
 function ReplaceStrRegex(value, pattern, replace, first) {
   arity.between(3, 4, arguments);
   first = defaults(first, null);
-  return new Expr(params({ replacestrregex: wrap(value) }, params( params({ pattern: wrap(pattern) }, { replace: wrap(replace) }), { first: wrap(first) }) ));
+  return new Expr(params({ replacestrregex: wrap(value), pattern: wrap(pattern), replace: wrap(replace) }, { first: wrap(first) }));
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
  * @param {string} value - The string to remove white space from the end.
  * @return {string} the string with trailing whitespaces removed
  */
 function RTrim(value) {
   arity.exact(1, arguments);
-  return new Expr(params({ rtrim: wrap(value) }));
+  return new Expr({ rtrim: wrap(value) });
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
  * @param {int} num - The string of N Space(s).
  * @return {string} a string with spaces
  */
 function Space(num) {
   arity.exact(1, arguments);
-  return new Expr(params({ space: wrap(num) }));
+  return new Expr({ space: wrap(num) });
 }
 /**
- * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
  * @param {string} value  The string to SubString.
  * @param {int} start  The position the first character of the return string begins at
@@ -6577,163 +6593,40 @@ function SubString(value, start, length) {
   arity.between(1, 3, arguments);
   start = defaults(start, null);
   length = defaults(length, null);
-  return new Expr(params({ substring: wrap(value) }, params({ start: wrap(start) }, { length: wrap(length) } )));
+  return new Expr(params({ substring: wrap(value) }, { start: wrap(start), length: wrap(length) } ));
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
  * @param {string} value - The string to TitleCase.
  * @return {string}  A string converted to titlecase
  */
 function TitleCase(value) {
   arity.exact(1, arguments);
-  return new Expr(params({ titlecase: wrap(value) }));
+  return new Expr({ titlecase: wrap(value) });
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
  * @param {string} value - The string to Trim.
  * @return {string} a string with leading and trailing whitespace removed
  */
 function Trim(value) {
   arity.exact(1, arguments);
-  return new Expr(params({ trim: wrap(value) }));
+  return new Expr({ trim: wrap(value) });
 }
 
 /**
- * See the [docs](https://fauna.com/documentation/queries#string-functions).
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
  *
  * @param {string} value - The string to Uppercase.
  * @return {string} An uppercase string
  */
 function UpperCase(value) {
   arity.exact(1, arguments);
-  return new Expr(params({ uppercase: wrap(value) }));
-}
-
-/**
- * See the [docs](https://fauna.com/documentation/queries#string_functions).
- *
- * @param {...module:query~ExprArg} terms
- *   A string to repeat.
- * @param {...module:query~ExprArg} terms
- *   The number of times to repeat the string
- * @return {Expr}
- */
-function Repeat(value, number) {
-  arity.between(1, 2, arguments);
-  number = defaults(number, null);
-  return new Expr(params({ repeat: wrap(value) }, { number: wrap(number) }));
-}
-
-/**
- * See the [docs](https://fauna.com/documentation/queries#string_functions).
- *
- * @param {...module:query~ExprArg} terms
- *   A string to search.
- * @param {...module:query~ExprArg} terms
- *   The string to find in the search string
- * @param {...module:query~ExprArg} terms
- *   The string to replace in the search string
- * @return {Expr}
- */
-function ReplaceStr(value, find, replace) {
-  arity.exact(3, arguments);
-  return new Expr(params({ replacestr: wrap(value) }, params({ find: wrap(find) }, { replace: wrap(replace) })));
-}
-
-/**
- * See the [docs](https://fauna.com/documentation/queries#string_functions).
- *
- * @param {...module:query~ExprArg} terms
- *   A string to search.
- * @param {...module:query~ExprArg} terms
- *   The pattern to find in the search string
- * @param {...module:query~ExprArg} terms
- *   The string to replace in the search string
- * @param {...module:query~ExprArg} terms
- *   replace all or just the first
- * @return {Expr}
- */
-function ReplaceStrRegex(value, pattern, replace, first) {
-  arity.between(3, 4, arguments);
-  first = defaults(first, null);
-  return new Expr(params({ replacestrregex: wrap(value) }, params( params({ pattern: wrap(pattern) }, { replace: wrap(replace) }), { first: wrap(first) }) ));
-}
-
-/**
- * See the [docs](https://fauna.com/documentation/queries#string_functions).
- *
- * @param {module:query~ExprArg} string
- *   The string to remove white space from the end.
- * @return {Expr}
- */
-function RTrim(expr) {
-  arity.exact(1, arguments);
-  return new Expr(params({ rtrim: wrap(expr) }));
-}
-
-/**
- * See the [docs](https://fauna.com/documentation/queries#string_functions).
- *
- * @param {module:query~ExprArg} string
- *   The string to Space.
- * @return {Expr}
- */
-function Space(expr) {
-  arity.exact(1, arguments);
-  return new Expr(params({ space: wrap(expr) }));
-}
-/**
- * See the [docs](https://fauna.com/documentation/queries#string_functions).
- *
- * @param {module:query~ExprArg} string
- *   The string to SubString.
- * @return {Expr}
- */
-function SubString(value, start, length) {
-  arity.between(1, 3, arguments);
-  start = defaults(start, null);
-  length = defaults(length, null);
-  return new Expr(params({ substring: wrap(value) }, params({ start: wrap(start) }, { length: wrap(length) } )));
-}
-
-/**
- * See the [docs](https://fauna.com/documentation/queries#string_functions).
- *
- * @param {module:query~ExprArg} string
- *   The string to TitleCase.
- * @return {Expr}
- */
-function TitleCase(expr) {
-  arity.exact(1, arguments);
-  return new Expr(params({ titlecase: wrap(expr) }));
-}
-
-/**
- * See the [docs](https://fauna.com/documentation/queries#string_functions).
- *
- * @param {module:query~ExprArg} string
- *   The string to Trim.
- * @return {Expr}
- */
-function Trim(expr) {
-  arity.exact(1, arguments);
-  return new Expr(params({ trim: wrap(expr) }));
-}
-
-/**
- * See the [docs](https://fauna.com/documentation/queries#string_functions).
- *
- * @param {module:query~ExprArg} string
- *   The string to Uppercase.
- * @return {Expr}
- */
-function UpperCase(expr) {
-  arity.exact(1, arguments);
-  return new Expr(params({ uppercase: wrap(expr) }));
+  return new Expr({ uppercase: wrap(value) });
 }
 
 // Time and date functions
@@ -6840,12 +6733,31 @@ function Index(name, scope) {
  * @param {module:query~ExprArg} [scope]
  *   The Ref of the class's scope.
  * @return {Expr}
+ * 
+ * @deprecated Class is deprecated, use Collection instead
  */
 function Class(name, scope) {
   arity.between(1, 2, arguments);
   switch(arguments.length) {
     case 1: return new Expr({ class: wrap(name) });
     case 2: return new Expr({ class: wrap(name), scope: wrap(scope) });
+  }
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#miscellaneous-functions).
+ *
+ * @param {module:query~ExprArg} name
+ *   The name of the collection.
+ * @param {module:query~ExprArg} [scope]
+ *   The Ref of the collection's scope.
+ * @return {Expr}
+ */
+function Collection(name, scope) {
+  arity.between(1, 2, arguments);
+  switch (arguments.length) {
+    case 1: return new Expr({ collection: wrap(name) });
+    case 2: return new Expr({ collection: wrap(name), scope: wrap(scope) });
   }
 }
 
@@ -6869,6 +6781,21 @@ function FunctionFn(name, scope) {
 /**
  * See the [docs](https://app.fauna.com/documentation/reference/queryapi#miscellaneous-functions).
  *
+ * @param {module:query~ExprArg} name
+ *   The name of the role.
+ * @param {module:query~ExprArg} [scope]
+ *   The Ref of the role's scope.
+ * @return {Expr}
+ */
+function Role(name, scope) {
+  arity.between(1, 2, arguments);
+  scope = defaults(scope, null);
+  return new Expr(params({ role: wrap(name) }, { scope: wrap(scope) }));
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#miscellaneous-functions).
+ *
  * Constructs a `classes` function that, when evaluated, returns a Ref value.
  *
  * @param {module:query~ExprArg} [scope]
@@ -6879,6 +6806,21 @@ function Classes(scope) {
   arity.max(1, arguments);
   scope = defaults(scope, null);
   return new Expr({ classes: wrap(scope) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#miscellaneous-functions).
+ *
+ * Constructs a `collections` function that, when evaluated, returns a Ref value.
+ *
+ * @param {module:query~ExprArg} [scope]
+ *   The Ref of the collection set's scope.
+ * @return {Expr}
+ */
+function Collections(scope) {
+  arity.max(1, arguments);
+  scope = defaults(scope, null);
+  return new Expr({ collections: wrap(scope) });
 }
 
 /**
@@ -6924,6 +6866,21 @@ function Functions(scope) {
   arity.max(1, arguments);
   scope = defaults(scope, null);
   return new Expr({ functions: wrap(scope) });
+}
+
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#miscellaneous-functions).
+ *
+ * Constructs a `roles` function that, when evaluated, returns a Ref value.
+ *
+ * @param {module:query~ExprArg} [scope]
+ *   The Ref of the role set's scope.
+ * @return {Expr}
+ */
+function Roles(scope) {
+  arity.max(1, arguments);
+  scope = defaults(scope, null);
+  return new Expr({ roles: wrap(scope) });
 }
 
 /**
@@ -6980,7 +6937,7 @@ function Credentials(scope) {
  */
 function Equals() {
   arity.min(1, arguments);
-  return new Expr({ equals: varargs(arguments) });
+  return new Expr({ equals: wrap(varargs(arguments)) });
 }
 
 /**
@@ -7572,6 +7529,138 @@ function ToTime(expr) {
 }
 
 /**
+ * Converts an expression evaluating to a time to seconds since epoch.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to seconds numeric value.
+ * @return {Expr}
+ */
+function ToSeconds(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ to_seconds: wrap(expr) });
+}
+
+/**
+ * Converts a time expression to milliseconds since the UNIX epoch.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to millisecond numeric value.
+ * @return {Expr}
+ */
+function ToMillis(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ to_millis: wrap(expr) });
+}
+
+/**
+ * Converts a time expression to microseconds since the UNIX epoch.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to microsecond numeric value.
+ * @return {Expr}
+ */
+function ToMicros(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ to_micros: wrap(expr) });
+}
+
+/**
+ * Returns a time expression's day of the week following ISO-8601 convention, from 1 (Monday) to 7 (Sunday).
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to day of week.
+ * @return {Expr}
+ */
+function DayOfWeek(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ day_of_week: wrap(expr) });
+}
+
+/**
+ * Returns a time expression's day of the year, from 1 to 365, or 366 in a leap year.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to day of year.
+ * @return {Expr}
+ */
+function DayOfYear(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ day_of_year: wrap(expr) });
+}
+
+/**
+ * Returns a time expression's day of the month, from 1 to 31.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to day of month.
+ * @return {Expr}
+ */
+function DayOfMonth(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ day_of_month: wrap(expr) });
+}
+
+/**
+ * Returns a time expression's second of the minute, from 0 to 59.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to a hour.
+ * @return {Expr}
+ */
+function Hour(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ hour: wrap(expr) });
+}
+
+/**
+ * Returns a time expression's second of the minute, from 0 to 59.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to a month.
+ * @return {Expr}
+ */
+function Minute(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ minute: wrap(expr) });
+}
+
+/**
+ * Returns a time expression's second of the minute, from 0 to 59.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to a month.
+ * @return {Expr}
+ */
+function Second(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ second: wrap(expr) });
+}
+
+/**
+ * Returns a time expression's month of the year, from 1 to 12.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to a month.
+ * @return {Expr}
+ */
+function Month(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ month: wrap(expr) });
+}
+
+/**
+ * Returns the time expression's year, following the ISO-8601 standard.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to a year.
+ * @return {Expr}
+ */
+function Year(expr) {
+  arity.exact(1, arguments);
+  return new Expr({ year: wrap(expr) });
+}
+
+/**
  * Converts an expression to a date literal.
  *
  * @param {module:query~ExprArg} expression
@@ -7733,11 +7822,13 @@ module.exports = {
   Delete: Delete,
   Insert: Insert,
   Remove: Remove,
-  CreateClass: CreateClass,
+  CreateClass: deprecate(CreateClass, 'CreateClass() is deprecated, use CreateCOllection() instead'),
+  CreateCollection: CreateCollection,
   CreateDatabase: CreateDatabase,
   CreateIndex: CreateIndex,
   CreateKey: CreateKey,
   CreateFunction: CreateFunction,
+  CreateRole: CreateRole,
   Singleton: Singleton,
   Events: Events,
   Match: Match,
@@ -7775,12 +7866,16 @@ module.exports = {
   NewId: NewId,
   Database: Database,
   Index: Index,
-  Class: Class,
+  Class: deprecate(Class, 'Class() is deprecated, use Collection() instead'),
+  Collection: Collection,
   Function: FunctionFn,
-  Classes: Classes,
+  Role: Role,
+  Classes: deprecate(Classes, 'Classes() is deprecated, use Collections() instead'),
+  Collections: Collections,
   Databases: Databases,
   Indexes: Indexes,
   Functions: Functions,
+  Roles: Roles,
   Keys: Keys,
   Tokens: Tokens,
   Credentials: Credentials,
@@ -7832,14 +7927,26 @@ module.exports = {
   ToString: ToString,
   ToNumber: ToNumber,
   ToTime: ToTime,
+  ToSeconds: ToSeconds,
+  ToMicros: ToMicros,
+  ToMillis: ToMillis,
+  DayOfMonth: DayOfMonth,
+  DayOfWeek: DayOfWeek,
+  DayOfYear: DayOfYear,
+  Second: Second,
+  Minute: Minute,
+  Hour: Hour,
+  Month: Month,
+  Year: Year,
   ToDate: ToDate,
   wrap: wrap
 };
 
-},{"./Expr":20,"./errors":26,"./values":28,"fn-annotate":6,"object-assign":8,"util-deprecate":16}],28:[function(require,module,exports){
+},{"./Expr":20,"./errors":26,"./values":28,"fn-annotate":6,"object-assign":7,"util-deprecate":15}],28:[function(require,module,exports){
 'use strict';
 
 var base64 = require('base64-js');
+var deprecate = require('util-deprecate');
 var errors = require('./errors');
 var Expr = require('./Expr');
 var util = require('util');
@@ -7848,13 +7955,13 @@ var customInspect = util && util.inspect && util.inspect.custom;
 var stringify = (util && util.inspect) || JSON.stringify;
 
 /**
- * FaunaDB value types. Generally, these classes do not need to be instantiated
+ * FaunaDB value types. Generally, these collections do not need to be instantiated
  * directly; they can be constructed through helper methods in {@link module:query}.
  *
- * Instances of these classes will be returned in responses if the response object
+ * Instances of these collections will be returned in responses if the response object
  * contains these values. For example, a FaunaDB response containing
- *`{ "@ref": { "id": "123", "class": { "@ref": { "id": "frogs", "class": { "@ref": { "id": "classes" } } } } } }`
- * will be returned as `new values.Ref("123", new values.Ref("frogs", values.Native.CLASSES))`.
+ *`{ "@ref": { "id": "123", "collection": { "@ref": { "id": "frogs", "collection": { "@ref": { "id": "collectiones" } } } } } }`
+ * will be returned as `new values.Ref("123", new values.Ref("frogs", values.Native.COLLECTIONS))`.
  *
  * See the [FaunaDB Query API Documentation](https://app.fauna.com/documentation/reference/queryapi#simple-type)
  * for more information.
@@ -7879,33 +7986,43 @@ util.inherits(Value, Expr);
  *
  * @param {string} id
  *   The id portion of the ref.
- * @param {Ref} [clazz]
- *   The class portion of the ref.
+ * @param {Ref} [collection]
+ *   The collection portion of the ref.
  * @param {Ref} [database]
  *   The database portion of the ref.
  *
  * @extends module:values~Value
  * @constructor
  */
-function Ref(id, clazz, database) {
+function Ref(id, collection, database) {
   if (!id) throw new errors.InvalidValue('id cannot be null or undefined');
 
   this.value = { id: id };
-  if (clazz) this.value['class'] = clazz;
+  if (collection) this.value['collection'] = collection;
   if (database) this.value['database'] = database;
 }
 
 util.inherits(Ref, Value);
 
 /**
- * Gets the class part out of the Ref.
+ * Gets the collection part out of the Ref.
+ *
+ * @member {string}
+ * @name module:values~Ref#collection
+ */
+Object.defineProperty(Ref.prototype, 'collection', { get: function() {
+  return this.value['collection'];
+} });
+
+/**
+ * DEPRECATED. Gets the class part out of the Ref.
  *
  * @member {string}
  * @name module:values~Ref#class
  */
-Object.defineProperty(Ref.prototype, 'class', { get: function() {
-  return this.value['class'];
-} });
+Object.defineProperty(Ref.prototype, 'class', {get: deprecate(function() {
+  return this.value['collection'];
+}, 'class is deprecated, use collection instead')});
 
 /**
  * Gets the database part out of the Ref.
@@ -7934,17 +8051,18 @@ Ref.prototype.toJSON = function() {
 
 wrapToString(Ref, function() {
   var constructors = {
-    classes: "Class",
+    collections: "Collection",
     databases: "Database",
     indexes: "Index",
-    functions: "Function"
+    functions: "Function",
+    roles: "Role"
   };
 
   var toString = function(ref, prevDb) {
-    if (ref.class === undefined && ref.database === undefined)
+    if (ref.collection === undefined && ref.database === undefined)
       return ref.id.charAt(0).toUpperCase() + ref.id.slice(1) + '(' + prevDb + ')';
 
-    var constructor = constructors[ref.class.id];
+    var constructor = constructors[ref.collection.id];
     if (constructor !== undefined) {
       var db = ref.database !== undefined ? ', ' +  ref.database.toString() : '';
       return constructor + '("' + ref.id + '"' + db + ')';
@@ -7952,7 +8070,7 @@ wrapToString(Ref, function() {
 
     var db = ref.database !== undefined ? ref.database.toString() : '';
 
-    return 'Ref(' + toString(ref.class, db) + ', "' + ref.id + '")';
+    return 'Ref(' + toString(ref.collection, db) + ', "' + ref.id + '")';
   };
 
   return toString(this, '');
@@ -7971,26 +8089,28 @@ Ref.prototype.valueOf = function() {
 Ref.prototype.equals = function(other) {
   return (other instanceof Ref) &&
     this.id === other.id &&
-    ((this.class === undefined && other.class === undefined) ||
-      this.class.equals(other.class)) &&
+    ((this.collection === undefined && other.collection === undefined) ||
+      this.collection.equals(other.collection)) &&
     ((this.database === undefined && other.database === undefined) ||
       this.database.equals(other.database))
 };
 
 var Native = {
-  CLASSES: new Ref('classes'),
+  COLLECTIONS: new Ref('collections'),
   INDEXES: new Ref('indexes'),
   DATABASES: new Ref('databases'),
   FUNCTIONS: new Ref('functions'),
+  ROLES: new Ref('roles'),
   KEYS: new Ref('keys')
 };
 
 Native.fromName = function(name) {
   switch(name) {
-    case 'classes': return Native.CLASSES;
+    case 'collections': return Native.COLLECTIONS;
     case 'indexes': return Native.INDEXES;
     case 'databases': return Native.DATABASES;
     case 'functions': return Native.FUNCTIONS;
+    case 'roles': return Native.ROLES;
     case 'keys': return Native.KEYS;
   }
   return new Ref(name);
@@ -8172,5 +8292,5 @@ module.exports = {
   Query: Query
 };
 
-},{"./Expr":20,"./errors":26,"base64-js":2,"util":18}]},{},[1])(1)
+},{"./Expr":20,"./errors":26,"base64-js":2,"util":18,"util-deprecate":15}]},{},[1])(1)
 });
