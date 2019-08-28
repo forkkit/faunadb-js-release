@@ -85,7 +85,8 @@ function toByteArray (b64) {
     ? validLen - 4
     : validLen
 
-  for (var i = 0; i < len; i += 4) {
+  var i
+  for (i = 0; i < len; i += 4) {
     tmp =
       (revLookup[b64.charCodeAt(i)] << 18) |
       (revLookup[b64.charCodeAt(i + 1)] << 12) |
@@ -6015,6 +6016,22 @@ function KeyFromSecret(secret) {
 }
 
 /**
+ * See the [docs](https://docs.fauna.com/fauna/current/api/fql/functions/reduce).
+ *
+ * @param {module:query~ExprArg} lambda
+ *   The accumulator function
+ * @param {module:query~ExprArg} initial
+ *   The initial value
+ * @param {module:query~ExprArg} collection
+ *   The colleciton to be reduced
+ * @return {Expr}
+ */
+function Reduce(lambda, initial, collection) {
+  arity.exact(3, arguments);
+  return new Expr({ reduce: wrap(lambda), initial: wrap(initial), collection: wrap(collection) });
+}
+
+/**
  * See the [docs](https://app.fauna.com/documentation/reference/queryapi#read-functions).
  * You may want to utilize {@link Client#paginate} to obtain a {@link PageHelper},
  * rather than using this query function directly.
@@ -6299,6 +6316,19 @@ function Union() {
 }
 
 /**
+ * Merge two or more objects..
+ *
+ * @param {...module:query~ExprArg} merge merge the first object.
+ * @param {...module:query~ExprArg} _with the second object or a list of objects
+ * @param {...module:query~ExprArg} lambda a lambda to resolve possible conflicts
+ * @return {Expr}
+ * */
+function Merge(merge, _with, lambda) {
+  arity.between(2, 3, arguments);
+  return new Expr(params({ 'merge': wrap(merge), 'with': wrap(_with) }, {'lambda': wrap(lambda) }));
+}
+
+/**
  * See the [docs](https://app.fauna.com/documentation/reference/queryapi#sets).
  *
  * @param {...module:query~ExprArg} sets
@@ -6346,6 +6376,22 @@ function Distinct(set) {
 function Join(source, target) {
   arity.exact(2, arguments);
   return new Expr({ join: wrap(source), with: wrap(target) });
+}
+
+/**
+ * See the [docs](https://docs.fauna.com/fauna/current/api/fql/functions/range).
+ *
+ * @param {module:query~ExprArg} set
+ *   A SetRef of the source set
+ * @param {module:query~ExprArg} from
+ *   The lower bound
+ * @param {module:query~ExprArg} to
+ *   The upper bound
+ * @return {Expr}
+ */
+function Range(set, from, to) {
+  arity.exact(3, arguments);
+  return new Expr({ range: wrap(set), from: wrap(from), to: wrap(to) });
 }
 
 // Authentication
@@ -6627,6 +6673,20 @@ function Trim(value) {
 function UpperCase(value) {
   arity.exact(1, arguments);
   return new Expr({ uppercase: wrap(value) });
+}
+
+/**
+ * Format values into a string.
+ *
+ * @param  {string}  string string with format specifiers
+ * @param  {array}   values list of values to format
+ * @return {string}         a string
+ */
+function Format(string) {
+  arity.min(1, arguments);
+  var args = argsToArray(arguments);
+  args.shift();
+  return new Expr({ format: wrap(string), values: wrap(varargs(args)) });
 }
 
 // Time and date functions
@@ -7814,6 +7874,7 @@ module.exports = {
   IsNonEmpty: IsNonEmpty,
   Get: Get,
   KeyFromSecret: KeyFromSecret,
+  Reduce: Reduce,
   Paginate: Paginate,
   Exists: Exists,
   Create: Create,
@@ -7833,10 +7894,12 @@ module.exports = {
   Events: Events,
   Match: Match,
   Union: Union,
+  Merge: Merge,
   Intersection: Intersection,
   Difference: Difference,
   Distinct: Distinct,
   Join: Join,
+  Range: Range,
   Login: Login,
   Logout: Logout,
   Identify: Identify,
@@ -7859,6 +7922,7 @@ module.exports = {
   TitleCase: TitleCase,
   Trim: Trim,
   UpperCase: UpperCase,
+  Format: Format,
   Time: Time,
   Epoch: Epoch,
   Date: Date,
