@@ -4481,7 +4481,7 @@ var Promise = require('es6-promise').Promise;
  *   Callback that will be called after every completed request.
  */
 function Client(options) {
-
+  var isNodeEnv = typeof window === 'undefined';
   var opts = util.applyDefaults(options, {
     domain: 'db.fauna.com',
     scheme: 'https',
@@ -4500,6 +4500,9 @@ function Client(options) {
   this._secret = opts.secret;
   this._observer = opts.observer;
   this._lastSeen = null;
+  this._keepAlive = isNodeEnv
+                      ? new require(opts.scheme).Agent({ keepAlive: true })
+                      : undefined
 }
 
 /**
@@ -4616,6 +4619,10 @@ Client.prototype._performRequest = function (action, path, data, query) {
     rq.set('X-Last-Seen-Txn', this._lastSeen);
   }
 
+  if(this._keepAlive) {
+    rq.agent(this._keepAlive);
+  }
+
   rq.set('X-FaunaDB-API-Version', APIVersion);
 
   rq.timeout(this._timeout);
@@ -4681,8 +4688,12 @@ var specialCases = {
 };
 
 var exprToString = function(expr, caller) {
-  if (expr instanceof Expr)
+  if (expr instanceof Expr) {
+    if ('value' in expr)
+      return expr.toString();
+
     expr = expr.raw;
+  }
 
   var type = typeof expr;
 
@@ -4736,8 +4747,18 @@ var exprToString = function(expr, caller) {
 
   var args = keys.map(function(k) {
     var v = expr[k];
-    return exprToString(v, fn)
-  }).join(', ');
+    return exprToString(v, fn);
+  });
+
+  var shouldReverseArgs = ['filter', 'map', 'foreach'].some(function(fn) {
+    return fn in expr;
+  });
+
+  if(shouldReverseArgs)
+    args.reverse();
+
+  args = args.join(', ');
+
   return fn + '(' + args + ')';
 };
 
@@ -8198,7 +8219,7 @@ function SetRef(value) {
 util.inherits(SetRef, Value);
 
 wrapToString(SetRef, function() {
-  return 'SetRef(' + stringify(this.value) + ')';
+  return Expr.toString(this.value);
 });
 
 /** @ignore */
