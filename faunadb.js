@@ -1,10 +1,4 @@
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.faunadb = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
-/**
- * An ES6 compatible promise. This driver depends on the {@link https://github.com/stefanpenner/es6-promise|es6-promise polyfill}.
- * @external Promise
- * @see {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise}
- */
-
 module.exports = {
   Client: require('./src/Client'),
   Expr: require('./src/Expr'),
@@ -14,10 +8,10 @@ module.exports = {
   clientLogger: require('./src/clientLogger'),
   errors: require('./src/errors'),
   values: require('./src/values'),
-  query: require('./src/query')
-};
+  query: require('./src/query'),
+}
 
-},{"./src/Client":53,"./src/Expr":54,"./src/PageHelper":55,"./src/RequestResult":56,"./src/clientLogger":59,"./src/errors":60,"./src/query":61,"./src/values":62}],2:[function(require,module,exports){
+},{"./src/Client":50,"./src/Expr":51,"./src/PageHelper":52,"./src/RequestResult":53,"./src/clientLogger":56,"./src/errors":57,"./src/query":58,"./src/values":59}],2:[function(require,module,exports){
 'use strict'
 
 exports.byteLength = byteLength
@@ -1981,7 +1975,7 @@ var hexSliceLookupTable = (function () {
 })()
 
 }).call(this,require("buffer").Buffer)
-},{"base64-js":2,"buffer":5,"ieee754":12}],6:[function(require,module,exports){
+},{"base64-js":2,"buffer":5,"ieee754":11}],6:[function(require,module,exports){
 module.exports = {
   "100": "Continue",
   "101": "Switching Protocols",
@@ -2048,1190 +2042,553 @@ module.exports = {
 }
 
 },{}],7:[function(require,module,exports){
-// This file can be required in Browserify and Node.js for automatic polyfill
-// To use it:  require('es6-promise/auto');
-'use strict';
-module.exports = require('./').polyfill();
-
-},{"./":8}],8:[function(require,module,exports){
-(function (process,global){
-/*!
- * @overview es6-promise - a tiny implementation of Promises/A+.
- * @copyright Copyright (c) 2014 Yehuda Katz, Tom Dale, Stefan Penner and contributors (Conversion to ES6 API by Jake Archibald)
- * @license   Licensed under MIT license
- *            See https://raw.githubusercontent.com/stefanpenner/es6-promise/master/LICENSE
- * @version   v4.2.8+1e68dce6
- */
-
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
-	typeof define === 'function' && define.amd ? define(factory) :
-	(global.ES6Promise = factory());
-}(this, (function () { 'use strict';
-
-function objectOrFunction(x) {
-  var type = typeof x;
-  return x !== null && (type === 'object' || type === 'function');
+var __self__ = (function (root) {
+function F() {
+this.fetch = false;
+this.DOMException = root.DOMException
 }
+F.prototype = root;
+return new F();
+})(typeof self !== 'undefined' ? self : this);
+(function(self) {
 
-function isFunction(x) {
-  return typeof x === 'function';
-}
-
-
-
-var _isArray = void 0;
-if (Array.isArray) {
-  _isArray = Array.isArray;
-} else {
-  _isArray = function (x) {
-    return Object.prototype.toString.call(x) === '[object Array]';
+var irrelevant = (function (exports) {
+  var support = {
+    searchParams: 'URLSearchParams' in self,
+    iterable: 'Symbol' in self && 'iterator' in Symbol,
+    blob:
+      'FileReader' in self &&
+      'Blob' in self &&
+      (function() {
+        try {
+          new Blob();
+          return true
+        } catch (e) {
+          return false
+        }
+      })(),
+    formData: 'FormData' in self,
+    arrayBuffer: 'ArrayBuffer' in self
   };
-}
 
-var isArray = _isArray;
-
-var len = 0;
-var vertxNext = void 0;
-var customSchedulerFn = void 0;
-
-var asap = function asap(callback, arg) {
-  queue[len] = callback;
-  queue[len + 1] = arg;
-  len += 2;
-  if (len === 2) {
-    // If len is 2, that means that we need to schedule an async flush.
-    // If additional callbacks are queued before the queue is flushed, they
-    // will be processed by this flush that we are scheduling.
-    if (customSchedulerFn) {
-      customSchedulerFn(flush);
-    } else {
-      scheduleFlush();
-    }
+  function isDataView(obj) {
+    return obj && DataView.prototype.isPrototypeOf(obj)
   }
-};
 
-function setScheduler(scheduleFn) {
-  customSchedulerFn = scheduleFn;
-}
+  if (support.arrayBuffer) {
+    var viewClasses = [
+      '[object Int8Array]',
+      '[object Uint8Array]',
+      '[object Uint8ClampedArray]',
+      '[object Int16Array]',
+      '[object Uint16Array]',
+      '[object Int32Array]',
+      '[object Uint32Array]',
+      '[object Float32Array]',
+      '[object Float64Array]'
+    ];
 
-function setAsap(asapFn) {
-  asap = asapFn;
-}
+    var isArrayBufferView =
+      ArrayBuffer.isView ||
+      function(obj) {
+        return obj && viewClasses.indexOf(Object.prototype.toString.call(obj)) > -1
+      };
+  }
 
-var browserWindow = typeof window !== 'undefined' ? window : undefined;
-var browserGlobal = browserWindow || {};
-var BrowserMutationObserver = browserGlobal.MutationObserver || browserGlobal.WebKitMutationObserver;
-var isNode = typeof self === 'undefined' && typeof process !== 'undefined' && {}.toString.call(process) === '[object process]';
+  function normalizeName(name) {
+    if (typeof name !== 'string') {
+      name = String(name);
+    }
+    if (/[^a-z0-9\-#$%&'*+.^_`|~]/i.test(name)) {
+      throw new TypeError('Invalid character in header field name')
+    }
+    return name.toLowerCase()
+  }
 
-// test for web worker but not in IE10
-var isWorker = typeof Uint8ClampedArray !== 'undefined' && typeof importScripts !== 'undefined' && typeof MessageChannel !== 'undefined';
+  function normalizeValue(value) {
+    if (typeof value !== 'string') {
+      value = String(value);
+    }
+    return value
+  }
 
-// node
-function useNextTick() {
-  // node version 0.10.x displays a deprecation warning when nextTick is used recursively
-  // see https://github.com/cujojs/when/issues/410 for details
-  return function () {
-    return process.nextTick(flush);
-  };
-}
-
-// vertx
-function useVertxTimer() {
-  if (typeof vertxNext !== 'undefined') {
-    return function () {
-      vertxNext(flush);
+  // Build a destructive iterator for the value list
+  function iteratorFor(items) {
+    var iterator = {
+      next: function() {
+        var value = items.shift();
+        return {done: value === undefined, value: value}
+      }
     };
-  }
 
-  return useSetTimeout();
-}
-
-function useMutationObserver() {
-  var iterations = 0;
-  var observer = new BrowserMutationObserver(flush);
-  var node = document.createTextNode('');
-  observer.observe(node, { characterData: true });
-
-  return function () {
-    node.data = iterations = ++iterations % 2;
-  };
-}
-
-// web worker
-function useMessageChannel() {
-  var channel = new MessageChannel();
-  channel.port1.onmessage = flush;
-  return function () {
-    return channel.port2.postMessage(0);
-  };
-}
-
-function useSetTimeout() {
-  // Store setTimeout reference so es6-promise will be unaffected by
-  // other code modifying setTimeout (like sinon.useFakeTimers())
-  var globalSetTimeout = setTimeout;
-  return function () {
-    return globalSetTimeout(flush, 1);
-  };
-}
-
-var queue = new Array(1000);
-function flush() {
-  for (var i = 0; i < len; i += 2) {
-    var callback = queue[i];
-    var arg = queue[i + 1];
-
-    callback(arg);
-
-    queue[i] = undefined;
-    queue[i + 1] = undefined;
-  }
-
-  len = 0;
-}
-
-function attemptVertx() {
-  try {
-    var vertx = Function('return this')().require('vertx');
-    vertxNext = vertx.runOnLoop || vertx.runOnContext;
-    return useVertxTimer();
-  } catch (e) {
-    return useSetTimeout();
-  }
-}
-
-var scheduleFlush = void 0;
-// Decide what async method to use to triggering processing of queued callbacks:
-if (isNode) {
-  scheduleFlush = useNextTick();
-} else if (BrowserMutationObserver) {
-  scheduleFlush = useMutationObserver();
-} else if (isWorker) {
-  scheduleFlush = useMessageChannel();
-} else if (browserWindow === undefined && typeof require === 'function') {
-  scheduleFlush = attemptVertx();
-} else {
-  scheduleFlush = useSetTimeout();
-}
-
-function then(onFulfillment, onRejection) {
-  var parent = this;
-
-  var child = new this.constructor(noop);
-
-  if (child[PROMISE_ID] === undefined) {
-    makePromise(child);
-  }
-
-  var _state = parent._state;
-
-
-  if (_state) {
-    var callback = arguments[_state - 1];
-    asap(function () {
-      return invokeCallback(_state, child, callback, parent._result);
-    });
-  } else {
-    subscribe(parent, child, onFulfillment, onRejection);
-  }
-
-  return child;
-}
-
-/**
-  `Promise.resolve` returns a promise that will become resolved with the
-  passed `value`. It is shorthand for the following:
-
-  ```javascript
-  let promise = new Promise(function(resolve, reject){
-    resolve(1);
-  });
-
-  promise.then(function(value){
-    // value === 1
-  });
-  ```
-
-  Instead of writing the above, your code now simply becomes the following:
-
-  ```javascript
-  let promise = Promise.resolve(1);
-
-  promise.then(function(value){
-    // value === 1
-  });
-  ```
-
-  @method resolve
-  @static
-  @param {Any} value value that the returned promise will be resolved with
-  Useful for tooling.
-  @return {Promise} a promise that will become fulfilled with the given
-  `value`
-*/
-function resolve$1(object) {
-  /*jshint validthis:true */
-  var Constructor = this;
-
-  if (object && typeof object === 'object' && object.constructor === Constructor) {
-    return object;
-  }
-
-  var promise = new Constructor(noop);
-  resolve(promise, object);
-  return promise;
-}
-
-var PROMISE_ID = Math.random().toString(36).substring(2);
-
-function noop() {}
-
-var PENDING = void 0;
-var FULFILLED = 1;
-var REJECTED = 2;
-
-function selfFulfillment() {
-  return new TypeError("You cannot resolve a promise with itself");
-}
-
-function cannotReturnOwn() {
-  return new TypeError('A promises callback cannot return that same promise.');
-}
-
-function tryThen(then$$1, value, fulfillmentHandler, rejectionHandler) {
-  try {
-    then$$1.call(value, fulfillmentHandler, rejectionHandler);
-  } catch (e) {
-    return e;
-  }
-}
-
-function handleForeignThenable(promise, thenable, then$$1) {
-  asap(function (promise) {
-    var sealed = false;
-    var error = tryThen(then$$1, thenable, function (value) {
-      if (sealed) {
-        return;
-      }
-      sealed = true;
-      if (thenable !== value) {
-        resolve(promise, value);
-      } else {
-        fulfill(promise, value);
-      }
-    }, function (reason) {
-      if (sealed) {
-        return;
-      }
-      sealed = true;
-
-      reject(promise, reason);
-    }, 'Settle: ' + (promise._label || ' unknown promise'));
-
-    if (!sealed && error) {
-      sealed = true;
-      reject(promise, error);
+    if (support.iterable) {
+      iterator[Symbol.iterator] = function() {
+        return iterator
+      };
     }
-  }, promise);
-}
 
-function handleOwnThenable(promise, thenable) {
-  if (thenable._state === FULFILLED) {
-    fulfill(promise, thenable._result);
-  } else if (thenable._state === REJECTED) {
-    reject(promise, thenable._result);
-  } else {
-    subscribe(thenable, undefined, function (value) {
-      return resolve(promise, value);
-    }, function (reason) {
-      return reject(promise, reason);
-    });
+    return iterator
   }
-}
 
-function handleMaybeThenable(promise, maybeThenable, then$$1) {
-  if (maybeThenable.constructor === promise.constructor && then$$1 === then && maybeThenable.constructor.resolve === resolve$1) {
-    handleOwnThenable(promise, maybeThenable);
-  } else {
-    if (then$$1 === undefined) {
-      fulfill(promise, maybeThenable);
-    } else if (isFunction(then$$1)) {
-      handleForeignThenable(promise, maybeThenable, then$$1);
+  function Headers(headers) {
+    this.map = {};
+
+    if (headers instanceof Headers) {
+      headers.forEach(function(value, name) {
+        this.append(name, value);
+      }, this);
+    } else if (Array.isArray(headers)) {
+      headers.forEach(function(header) {
+        this.append(header[0], header[1]);
+      }, this);
+    } else if (headers) {
+      Object.getOwnPropertyNames(headers).forEach(function(name) {
+        this.append(name, headers[name]);
+      }, this);
+    }
+  }
+
+  Headers.prototype.append = function(name, value) {
+    name = normalizeName(name);
+    value = normalizeValue(value);
+    var oldValue = this.map[name];
+    this.map[name] = oldValue ? oldValue + ', ' + value : value;
+  };
+
+  Headers.prototype['delete'] = function(name) {
+    delete this.map[normalizeName(name)];
+  };
+
+  Headers.prototype.get = function(name) {
+    name = normalizeName(name);
+    return this.has(name) ? this.map[name] : null
+  };
+
+  Headers.prototype.has = function(name) {
+    return this.map.hasOwnProperty(normalizeName(name))
+  };
+
+  Headers.prototype.set = function(name, value) {
+    this.map[normalizeName(name)] = normalizeValue(value);
+  };
+
+  Headers.prototype.forEach = function(callback, thisArg) {
+    for (var name in this.map) {
+      if (this.map.hasOwnProperty(name)) {
+        callback.call(thisArg, this.map[name], name, this);
+      }
+    }
+  };
+
+  Headers.prototype.keys = function() {
+    var items = [];
+    this.forEach(function(value, name) {
+      items.push(name);
+    });
+    return iteratorFor(items)
+  };
+
+  Headers.prototype.values = function() {
+    var items = [];
+    this.forEach(function(value) {
+      items.push(value);
+    });
+    return iteratorFor(items)
+  };
+
+  Headers.prototype.entries = function() {
+    var items = [];
+    this.forEach(function(value, name) {
+      items.push([name, value]);
+    });
+    return iteratorFor(items)
+  };
+
+  if (support.iterable) {
+    Headers.prototype[Symbol.iterator] = Headers.prototype.entries;
+  }
+
+  function consumed(body) {
+    if (body.bodyUsed) {
+      return Promise.reject(new TypeError('Already read'))
+    }
+    body.bodyUsed = true;
+  }
+
+  function fileReaderReady(reader) {
+    return new Promise(function(resolve, reject) {
+      reader.onload = function() {
+        resolve(reader.result);
+      };
+      reader.onerror = function() {
+        reject(reader.error);
+      };
+    })
+  }
+
+  function readBlobAsArrayBuffer(blob) {
+    var reader = new FileReader();
+    var promise = fileReaderReady(reader);
+    reader.readAsArrayBuffer(blob);
+    return promise
+  }
+
+  function readBlobAsText(blob) {
+    var reader = new FileReader();
+    var promise = fileReaderReady(reader);
+    reader.readAsText(blob);
+    return promise
+  }
+
+  function readArrayBufferAsText(buf) {
+    var view = new Uint8Array(buf);
+    var chars = new Array(view.length);
+
+    for (var i = 0; i < view.length; i++) {
+      chars[i] = String.fromCharCode(view[i]);
+    }
+    return chars.join('')
+  }
+
+  function bufferClone(buf) {
+    if (buf.slice) {
+      return buf.slice(0)
     } else {
-      fulfill(promise, maybeThenable);
-    }
-  }
-}
-
-function resolve(promise, value) {
-  if (promise === value) {
-    reject(promise, selfFulfillment());
-  } else if (objectOrFunction(value)) {
-    var then$$1 = void 0;
-    try {
-      then$$1 = value.then;
-    } catch (error) {
-      reject(promise, error);
-      return;
-    }
-    handleMaybeThenable(promise, value, then$$1);
-  } else {
-    fulfill(promise, value);
-  }
-}
-
-function publishRejection(promise) {
-  if (promise._onerror) {
-    promise._onerror(promise._result);
-  }
-
-  publish(promise);
-}
-
-function fulfill(promise, value) {
-  if (promise._state !== PENDING) {
-    return;
-  }
-
-  promise._result = value;
-  promise._state = FULFILLED;
-
-  if (promise._subscribers.length !== 0) {
-    asap(publish, promise);
-  }
-}
-
-function reject(promise, reason) {
-  if (promise._state !== PENDING) {
-    return;
-  }
-  promise._state = REJECTED;
-  promise._result = reason;
-
-  asap(publishRejection, promise);
-}
-
-function subscribe(parent, child, onFulfillment, onRejection) {
-  var _subscribers = parent._subscribers;
-  var length = _subscribers.length;
-
-
-  parent._onerror = null;
-
-  _subscribers[length] = child;
-  _subscribers[length + FULFILLED] = onFulfillment;
-  _subscribers[length + REJECTED] = onRejection;
-
-  if (length === 0 && parent._state) {
-    asap(publish, parent);
-  }
-}
-
-function publish(promise) {
-  var subscribers = promise._subscribers;
-  var settled = promise._state;
-
-  if (subscribers.length === 0) {
-    return;
-  }
-
-  var child = void 0,
-      callback = void 0,
-      detail = promise._result;
-
-  for (var i = 0; i < subscribers.length; i += 3) {
-    child = subscribers[i];
-    callback = subscribers[i + settled];
-
-    if (child) {
-      invokeCallback(settled, child, callback, detail);
-    } else {
-      callback(detail);
+      var view = new Uint8Array(buf.byteLength);
+      view.set(new Uint8Array(buf));
+      return view.buffer
     }
   }
 
-  promise._subscribers.length = 0;
-}
+  function Body() {
+    this.bodyUsed = false;
 
-function invokeCallback(settled, promise, callback, detail) {
-  var hasCallback = isFunction(callback),
-      value = void 0,
-      error = void 0,
-      succeeded = true;
-
-  if (hasCallback) {
-    try {
-      value = callback(detail);
-    } catch (e) {
-      succeeded = false;
-      error = e;
-    }
-
-    if (promise === value) {
-      reject(promise, cannotReturnOwn());
-      return;
-    }
-  } else {
-    value = detail;
-  }
-
-  if (promise._state !== PENDING) {
-    // noop
-  } else if (hasCallback && succeeded) {
-    resolve(promise, value);
-  } else if (succeeded === false) {
-    reject(promise, error);
-  } else if (settled === FULFILLED) {
-    fulfill(promise, value);
-  } else if (settled === REJECTED) {
-    reject(promise, value);
-  }
-}
-
-function initializePromise(promise, resolver) {
-  try {
-    resolver(function resolvePromise(value) {
-      resolve(promise, value);
-    }, function rejectPromise(reason) {
-      reject(promise, reason);
-    });
-  } catch (e) {
-    reject(promise, e);
-  }
-}
-
-var id = 0;
-function nextId() {
-  return id++;
-}
-
-function makePromise(promise) {
-  promise[PROMISE_ID] = id++;
-  promise._state = undefined;
-  promise._result = undefined;
-  promise._subscribers = [];
-}
-
-function validationError() {
-  return new Error('Array Methods must be provided an Array');
-}
-
-var Enumerator = function () {
-  function Enumerator(Constructor, input) {
-    this._instanceConstructor = Constructor;
-    this.promise = new Constructor(noop);
-
-    if (!this.promise[PROMISE_ID]) {
-      makePromise(this.promise);
-    }
-
-    if (isArray(input)) {
-      this.length = input.length;
-      this._remaining = input.length;
-
-      this._result = new Array(this.length);
-
-      if (this.length === 0) {
-        fulfill(this.promise, this._result);
+    this._initBody = function(body) {
+      this._bodyInit = body;
+      if (!body) {
+        this._bodyText = '';
+      } else if (typeof body === 'string') {
+        this._bodyText = body;
+      } else if (support.blob && Blob.prototype.isPrototypeOf(body)) {
+        this._bodyBlob = body;
+      } else if (support.formData && FormData.prototype.isPrototypeOf(body)) {
+        this._bodyFormData = body;
+      } else if (support.searchParams && URLSearchParams.prototype.isPrototypeOf(body)) {
+        this._bodyText = body.toString();
+      } else if (support.arrayBuffer && support.blob && isDataView(body)) {
+        this._bodyArrayBuffer = bufferClone(body.buffer);
+        // IE 10-11 can't handle a DataView body.
+        this._bodyInit = new Blob([this._bodyArrayBuffer]);
+      } else if (support.arrayBuffer && (ArrayBuffer.prototype.isPrototypeOf(body) || isArrayBufferView(body))) {
+        this._bodyArrayBuffer = bufferClone(body);
       } else {
-        this.length = this.length || 0;
-        this._enumerate(input);
-        if (this._remaining === 0) {
-          fulfill(this.promise, this._result);
+        this._bodyText = body = Object.prototype.toString.call(body);
+      }
+
+      if (!this.headers.get('content-type')) {
+        if (typeof body === 'string') {
+          this.headers.set('content-type', 'text/plain;charset=UTF-8');
+        } else if (this._bodyBlob && this._bodyBlob.type) {
+          this.headers.set('content-type', this._bodyBlob.type);
+        } else if (support.searchParams && URLSearchParams.prototype.isPrototypeOf(body)) {
+          this.headers.set('content-type', 'application/x-www-form-urlencoded;charset=UTF-8');
         }
       }
-    } else {
-      reject(this.promise, validationError());
-    }
-  }
+    };
 
-  Enumerator.prototype._enumerate = function _enumerate(input) {
-    for (var i = 0; this._state === PENDING && i < input.length; i++) {
-      this._eachEntry(input[i], i);
-    }
-  };
+    if (support.blob) {
+      this.blob = function() {
+        var rejected = consumed(this);
+        if (rejected) {
+          return rejected
+        }
 
-  Enumerator.prototype._eachEntry = function _eachEntry(entry, i) {
-    var c = this._instanceConstructor;
-    var resolve$$1 = c.resolve;
-
-
-    if (resolve$$1 === resolve$1) {
-      var _then = void 0;
-      var error = void 0;
-      var didError = false;
-      try {
-        _then = entry.then;
-      } catch (e) {
-        didError = true;
-        error = e;
-      }
-
-      if (_then === then && entry._state !== PENDING) {
-        this._settledAt(entry._state, i, entry._result);
-      } else if (typeof _then !== 'function') {
-        this._remaining--;
-        this._result[i] = entry;
-      } else if (c === Promise$1) {
-        var promise = new c(noop);
-        if (didError) {
-          reject(promise, error);
+        if (this._bodyBlob) {
+          return Promise.resolve(this._bodyBlob)
+        } else if (this._bodyArrayBuffer) {
+          return Promise.resolve(new Blob([this._bodyArrayBuffer]))
+        } else if (this._bodyFormData) {
+          throw new Error('could not read FormData body as blob')
         } else {
-          handleMaybeThenable(promise, entry, _then);
-        }
-        this._willSettleAt(promise, i);
-      } else {
-        this._willSettleAt(new c(function (resolve$$1) {
-          return resolve$$1(entry);
-        }), i);
-      }
-    } else {
-      this._willSettleAt(resolve$$1(entry), i);
-    }
-  };
-
-  Enumerator.prototype._settledAt = function _settledAt(state, i, value) {
-    var promise = this.promise;
-
-
-    if (promise._state === PENDING) {
-      this._remaining--;
-
-      if (state === REJECTED) {
-        reject(promise, value);
-      } else {
-        this._result[i] = value;
-      }
-    }
-
-    if (this._remaining === 0) {
-      fulfill(promise, this._result);
-    }
-  };
-
-  Enumerator.prototype._willSettleAt = function _willSettleAt(promise, i) {
-    var enumerator = this;
-
-    subscribe(promise, undefined, function (value) {
-      return enumerator._settledAt(FULFILLED, i, value);
-    }, function (reason) {
-      return enumerator._settledAt(REJECTED, i, reason);
-    });
-  };
-
-  return Enumerator;
-}();
-
-/**
-  `Promise.all` accepts an array of promises, and returns a new promise which
-  is fulfilled with an array of fulfillment values for the passed promises, or
-  rejected with the reason of the first passed promise to be rejected. It casts all
-  elements of the passed iterable to promises as it runs this algorithm.
-
-  Example:
-
-  ```javascript
-  let promise1 = resolve(1);
-  let promise2 = resolve(2);
-  let promise3 = resolve(3);
-  let promises = [ promise1, promise2, promise3 ];
-
-  Promise.all(promises).then(function(array){
-    // The array here would be [ 1, 2, 3 ];
-  });
-  ```
-
-  If any of the `promises` given to `all` are rejected, the first promise
-  that is rejected will be given as an argument to the returned promises's
-  rejection handler. For example:
-
-  Example:
-
-  ```javascript
-  let promise1 = resolve(1);
-  let promise2 = reject(new Error("2"));
-  let promise3 = reject(new Error("3"));
-  let promises = [ promise1, promise2, promise3 ];
-
-  Promise.all(promises).then(function(array){
-    // Code here never runs because there are rejected promises!
-  }, function(error) {
-    // error.message === "2"
-  });
-  ```
-
-  @method all
-  @static
-  @param {Array} entries array of promises
-  @param {String} label optional string for labeling the promise.
-  Useful for tooling.
-  @return {Promise} promise that is fulfilled when all `promises` have been
-  fulfilled, or rejected if any of them become rejected.
-  @static
-*/
-function all(entries) {
-  return new Enumerator(this, entries).promise;
-}
-
-/**
-  `Promise.race` returns a new promise which is settled in the same way as the
-  first passed promise to settle.
-
-  Example:
-
-  ```javascript
-  let promise1 = new Promise(function(resolve, reject){
-    setTimeout(function(){
-      resolve('promise 1');
-    }, 200);
-  });
-
-  let promise2 = new Promise(function(resolve, reject){
-    setTimeout(function(){
-      resolve('promise 2');
-    }, 100);
-  });
-
-  Promise.race([promise1, promise2]).then(function(result){
-    // result === 'promise 2' because it was resolved before promise1
-    // was resolved.
-  });
-  ```
-
-  `Promise.race` is deterministic in that only the state of the first
-  settled promise matters. For example, even if other promises given to the
-  `promises` array argument are resolved, but the first settled promise has
-  become rejected before the other promises became fulfilled, the returned
-  promise will become rejected:
-
-  ```javascript
-  let promise1 = new Promise(function(resolve, reject){
-    setTimeout(function(){
-      resolve('promise 1');
-    }, 200);
-  });
-
-  let promise2 = new Promise(function(resolve, reject){
-    setTimeout(function(){
-      reject(new Error('promise 2'));
-    }, 100);
-  });
-
-  Promise.race([promise1, promise2]).then(function(result){
-    // Code here never runs
-  }, function(reason){
-    // reason.message === 'promise 2' because promise 2 became rejected before
-    // promise 1 became fulfilled
-  });
-  ```
-
-  An example real-world use case is implementing timeouts:
-
-  ```javascript
-  Promise.race([ajax('foo.json'), timeout(5000)])
-  ```
-
-  @method race
-  @static
-  @param {Array} promises array of promises to observe
-  Useful for tooling.
-  @return {Promise} a promise which settles in the same way as the first passed
-  promise to settle.
-*/
-function race(entries) {
-  /*jshint validthis:true */
-  var Constructor = this;
-
-  if (!isArray(entries)) {
-    return new Constructor(function (_, reject) {
-      return reject(new TypeError('You must pass an array to race.'));
-    });
-  } else {
-    return new Constructor(function (resolve, reject) {
-      var length = entries.length;
-      for (var i = 0; i < length; i++) {
-        Constructor.resolve(entries[i]).then(resolve, reject);
-      }
-    });
-  }
-}
-
-/**
-  `Promise.reject` returns a promise rejected with the passed `reason`.
-  It is shorthand for the following:
-
-  ```javascript
-  let promise = new Promise(function(resolve, reject){
-    reject(new Error('WHOOPS'));
-  });
-
-  promise.then(function(value){
-    // Code here doesn't run because the promise is rejected!
-  }, function(reason){
-    // reason.message === 'WHOOPS'
-  });
-  ```
-
-  Instead of writing the above, your code now simply becomes the following:
-
-  ```javascript
-  let promise = Promise.reject(new Error('WHOOPS'));
-
-  promise.then(function(value){
-    // Code here doesn't run because the promise is rejected!
-  }, function(reason){
-    // reason.message === 'WHOOPS'
-  });
-  ```
-
-  @method reject
-  @static
-  @param {Any} reason value that the returned promise will be rejected with.
-  Useful for tooling.
-  @return {Promise} a promise rejected with the given `reason`.
-*/
-function reject$1(reason) {
-  /*jshint validthis:true */
-  var Constructor = this;
-  var promise = new Constructor(noop);
-  reject(promise, reason);
-  return promise;
-}
-
-function needsResolver() {
-  throw new TypeError('You must pass a resolver function as the first argument to the promise constructor');
-}
-
-function needsNew() {
-  throw new TypeError("Failed to construct 'Promise': Please use the 'new' operator, this object constructor cannot be called as a function.");
-}
-
-/**
-  Promise objects represent the eventual result of an asynchronous operation. The
-  primary way of interacting with a promise is through its `then` method, which
-  registers callbacks to receive either a promise's eventual value or the reason
-  why the promise cannot be fulfilled.
-
-  Terminology
-  -----------
-
-  - `promise` is an object or function with a `then` method whose behavior conforms to this specification.
-  - `thenable` is an object or function that defines a `then` method.
-  - `value` is any legal JavaScript value (including undefined, a thenable, or a promise).
-  - `exception` is a value that is thrown using the throw statement.
-  - `reason` is a value that indicates why a promise was rejected.
-  - `settled` the final resting state of a promise, fulfilled or rejected.
-
-  A promise can be in one of three states: pending, fulfilled, or rejected.
-
-  Promises that are fulfilled have a fulfillment value and are in the fulfilled
-  state.  Promises that are rejected have a rejection reason and are in the
-  rejected state.  A fulfillment value is never a thenable.
-
-  Promises can also be said to *resolve* a value.  If this value is also a
-  promise, then the original promise's settled state will match the value's
-  settled state.  So a promise that *resolves* a promise that rejects will
-  itself reject, and a promise that *resolves* a promise that fulfills will
-  itself fulfill.
-
-
-  Basic Usage:
-  ------------
-
-  ```js
-  let promise = new Promise(function(resolve, reject) {
-    // on success
-    resolve(value);
-
-    // on failure
-    reject(reason);
-  });
-
-  promise.then(function(value) {
-    // on fulfillment
-  }, function(reason) {
-    // on rejection
-  });
-  ```
-
-  Advanced Usage:
-  ---------------
-
-  Promises shine when abstracting away asynchronous interactions such as
-  `XMLHttpRequest`s.
-
-  ```js
-  function getJSON(url) {
-    return new Promise(function(resolve, reject){
-      let xhr = new XMLHttpRequest();
-
-      xhr.open('GET', url);
-      xhr.onreadystatechange = handler;
-      xhr.responseType = 'json';
-      xhr.setRequestHeader('Accept', 'application/json');
-      xhr.send();
-
-      function handler() {
-        if (this.readyState === this.DONE) {
-          if (this.status === 200) {
-            resolve(this.response);
-          } else {
-            reject(new Error('getJSON: `' + url + '` failed with status: [' + this.status + ']'));
-          }
+          return Promise.resolve(new Blob([this._bodyText]))
         }
       };
-    });
-  }
 
-  getJSON('/posts.json').then(function(json) {
-    // on fulfillment
-  }, function(reason) {
-    // on rejection
-  });
-  ```
-
-  Unlike callbacks, promises are great composable primitives.
-
-  ```js
-  Promise.all([
-    getJSON('/posts'),
-    getJSON('/comments')
-  ]).then(function(values){
-    values[0] // => postsJSON
-    values[1] // => commentsJSON
-
-    return values;
-  });
-  ```
-
-  @class Promise
-  @param {Function} resolver
-  Useful for tooling.
-  @constructor
-*/
-
-var Promise$1 = function () {
-  function Promise(resolver) {
-    this[PROMISE_ID] = nextId();
-    this._result = this._state = undefined;
-    this._subscribers = [];
-
-    if (noop !== resolver) {
-      typeof resolver !== 'function' && needsResolver();
-      this instanceof Promise ? initializePromise(this, resolver) : needsNew();
+      this.arrayBuffer = function() {
+        if (this._bodyArrayBuffer) {
+          return consumed(this) || Promise.resolve(this._bodyArrayBuffer)
+        } else {
+          return this.blob().then(readBlobAsArrayBuffer)
+        }
+      };
     }
-  }
 
-  /**
-  The primary way of interacting with a promise is through its `then` method,
-  which registers callbacks to receive either a promise's eventual value or the
-  reason why the promise cannot be fulfilled.
-   ```js
-  findUser().then(function(user){
-    // user is available
-  }, function(reason){
-    // user is unavailable, and you are given the reason why
-  });
-  ```
-   Chaining
-  --------
-   The return value of `then` is itself a promise.  This second, 'downstream'
-  promise is resolved with the return value of the first promise's fulfillment
-  or rejection handler, or rejected if the handler throws an exception.
-   ```js
-  findUser().then(function (user) {
-    return user.name;
-  }, function (reason) {
-    return 'default name';
-  }).then(function (userName) {
-    // If `findUser` fulfilled, `userName` will be the user's name, otherwise it
-    // will be `'default name'`
-  });
-   findUser().then(function (user) {
-    throw new Error('Found user, but still unhappy');
-  }, function (reason) {
-    throw new Error('`findUser` rejected and we're unhappy');
-  }).then(function (value) {
-    // never reached
-  }, function (reason) {
-    // if `findUser` fulfilled, `reason` will be 'Found user, but still unhappy'.
-    // If `findUser` rejected, `reason` will be '`findUser` rejected and we're unhappy'.
-  });
-  ```
-  If the downstream promise does not specify a rejection handler, rejection reasons will be propagated further downstream.
-   ```js
-  findUser().then(function (user) {
-    throw new PedagogicalException('Upstream error');
-  }).then(function (value) {
-    // never reached
-  }).then(function (value) {
-    // never reached
-  }, function (reason) {
-    // The `PedgagocialException` is propagated all the way down to here
-  });
-  ```
-   Assimilation
-  ------------
-   Sometimes the value you want to propagate to a downstream promise can only be
-  retrieved asynchronously. This can be achieved by returning a promise in the
-  fulfillment or rejection handler. The downstream promise will then be pending
-  until the returned promise is settled. This is called *assimilation*.
-   ```js
-  findUser().then(function (user) {
-    return findCommentsByAuthor(user);
-  }).then(function (comments) {
-    // The user's comments are now available
-  });
-  ```
-   If the assimliated promise rejects, then the downstream promise will also reject.
-   ```js
-  findUser().then(function (user) {
-    return findCommentsByAuthor(user);
-  }).then(function (comments) {
-    // If `findCommentsByAuthor` fulfills, we'll have the value here
-  }, function (reason) {
-    // If `findCommentsByAuthor` rejects, we'll have the reason here
-  });
-  ```
-   Simple Example
-  --------------
-   Synchronous Example
-   ```javascript
-  let result;
-   try {
-    result = findResult();
-    // success
-  } catch(reason) {
-    // failure
-  }
-  ```
-   Errback Example
-   ```js
-  findResult(function(result, err){
-    if (err) {
-      // failure
-    } else {
-      // success
-    }
-  });
-  ```
-   Promise Example;
-   ```javascript
-  findResult().then(function(result){
-    // success
-  }, function(reason){
-    // failure
-  });
-  ```
-   Advanced Example
-  --------------
-   Synchronous Example
-   ```javascript
-  let author, books;
-   try {
-    author = findAuthor();
-    books  = findBooksByAuthor(author);
-    // success
-  } catch(reason) {
-    // failure
-  }
-  ```
-   Errback Example
-   ```js
-   function foundBooks(books) {
-   }
-   function failure(reason) {
-   }
-   findAuthor(function(author, err){
-    if (err) {
-      failure(err);
-      // failure
-    } else {
-      try {
-        findBoooksByAuthor(author, function(books, err) {
-          if (err) {
-            failure(err);
-          } else {
-            try {
-              foundBooks(books);
-            } catch(reason) {
-              failure(reason);
-            }
-          }
-        });
-      } catch(error) {
-        failure(err);
+    this.text = function() {
+      var rejected = consumed(this);
+      if (rejected) {
+        return rejected
       }
-      // success
+
+      if (this._bodyBlob) {
+        return readBlobAsText(this._bodyBlob)
+      } else if (this._bodyArrayBuffer) {
+        return Promise.resolve(readArrayBufferAsText(this._bodyArrayBuffer))
+      } else if (this._bodyFormData) {
+        throw new Error('could not read FormData body as text')
+      } else {
+        return Promise.resolve(this._bodyText)
+      }
+    };
+
+    if (support.formData) {
+      this.formData = function() {
+        return this.text().then(decode)
+      };
     }
-  });
-  ```
-   Promise Example;
-   ```javascript
-  findAuthor().
-    then(findBooksByAuthor).
-    then(function(books){
-      // found books
-  }).catch(function(reason){
-    // something went wrong
-  });
-  ```
-   @method then
-  @param {Function} onFulfilled
-  @param {Function} onRejected
-  Useful for tooling.
-  @return {Promise}
-  */
 
-  /**
-  `catch` is simply sugar for `then(undefined, onRejection)` which makes it the same
-  as the catch block of a try/catch statement.
-  ```js
-  function findAuthor(){
-  throw new Error('couldn't find that author');
+    this.json = function() {
+      return this.text().then(JSON.parse)
+    };
+
+    return this
   }
-  // synchronous
-  try {
-  findAuthor();
-  } catch(reason) {
-  // something went wrong
+
+  // HTTP methods whose capitalization should be normalized
+  var methods = ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'POST', 'PUT'];
+
+  function normalizeMethod(method) {
+    var upcased = method.toUpperCase();
+    return methods.indexOf(upcased) > -1 ? upcased : method
   }
-  // async with promises
-  findAuthor().catch(function(reason){
-  // something went wrong
-  });
-  ```
-  @method catch
-  @param {Function} onRejection
-  Useful for tooling.
-  @return {Promise}
-  */
 
+  function Request(input, options) {
+    options = options || {};
+    var body = options.body;
 
-  Promise.prototype.catch = function _catch(onRejection) {
-    return this.then(null, onRejection);
+    if (input instanceof Request) {
+      if (input.bodyUsed) {
+        throw new TypeError('Already read')
+      }
+      this.url = input.url;
+      this.credentials = input.credentials;
+      if (!options.headers) {
+        this.headers = new Headers(input.headers);
+      }
+      this.method = input.method;
+      this.mode = input.mode;
+      this.signal = input.signal;
+      if (!body && input._bodyInit != null) {
+        body = input._bodyInit;
+        input.bodyUsed = true;
+      }
+    } else {
+      this.url = String(input);
+    }
+
+    this.credentials = options.credentials || this.credentials || 'same-origin';
+    if (options.headers || !this.headers) {
+      this.headers = new Headers(options.headers);
+    }
+    this.method = normalizeMethod(options.method || this.method || 'GET');
+    this.mode = options.mode || this.mode || null;
+    this.signal = options.signal || this.signal;
+    this.referrer = null;
+
+    if ((this.method === 'GET' || this.method === 'HEAD') && body) {
+      throw new TypeError('Body not allowed for GET or HEAD requests')
+    }
+    this._initBody(body);
+  }
+
+  Request.prototype.clone = function() {
+    return new Request(this, {body: this._bodyInit})
   };
 
-  /**
-    `finally` will be invoked regardless of the promise's fate just as native
-    try/catch/finally behaves
-  
-    Synchronous example:
-  
-    ```js
-    findAuthor() {
-      if (Math.random() > 0.5) {
-        throw new Error();
-      }
-      return new Author();
-    }
-  
-    try {
-      return findAuthor(); // succeed or fail
-    } catch(error) {
-      return findOtherAuther();
-    } finally {
-      // always runs
-      // doesn't affect the return value
-    }
-    ```
-  
-    Asynchronous example:
-  
-    ```js
-    findAuthor().catch(function(reason){
-      return findOtherAuther();
-    }).finally(function(){
-      // author was either found, or not
-    });
-    ```
-  
-    @method finally
-    @param {Function} callback
-    @return {Promise}
-  */
-
-
-  Promise.prototype.finally = function _finally(callback) {
-    var promise = this;
-    var constructor = promise.constructor;
-
-    if (isFunction(callback)) {
-      return promise.then(function (value) {
-        return constructor.resolve(callback()).then(function () {
-          return value;
-        });
-      }, function (reason) {
-        return constructor.resolve(callback()).then(function () {
-          throw reason;
-        });
+  function decode(body) {
+    var form = new FormData();
+    body
+      .trim()
+      .split('&')
+      .forEach(function(bytes) {
+        if (bytes) {
+          var split = bytes.split('=');
+          var name = split.shift().replace(/\+/g, ' ');
+          var value = split.join('=').replace(/\+/g, ' ');
+          form.append(decodeURIComponent(name), decodeURIComponent(value));
+        }
       });
+    return form
+  }
+
+  function parseHeaders(rawHeaders) {
+    var headers = new Headers();
+    // Replace instances of \r\n and \n followed by at least one space or horizontal tab with a space
+    // https://tools.ietf.org/html/rfc7230#section-3.2
+    var preProcessedHeaders = rawHeaders.replace(/\r?\n[\t ]+/g, ' ');
+    preProcessedHeaders.split(/\r?\n/).forEach(function(line) {
+      var parts = line.split(':');
+      var key = parts.shift().trim();
+      if (key) {
+        var value = parts.join(':').trim();
+        headers.append(key, value);
+      }
+    });
+    return headers
+  }
+
+  Body.call(Request.prototype);
+
+  function Response(bodyInit, options) {
+    if (!options) {
+      options = {};
     }
 
-    return promise.then(callback, callback);
+    this.type = 'default';
+    this.status = options.status === undefined ? 200 : options.status;
+    this.ok = this.status >= 200 && this.status < 300;
+    this.statusText = 'statusText' in options ? options.statusText : 'OK';
+    this.headers = new Headers(options.headers);
+    this.url = options.url || '';
+    this._initBody(bodyInit);
+  }
+
+  Body.call(Response.prototype);
+
+  Response.prototype.clone = function() {
+    return new Response(this._bodyInit, {
+      status: this.status,
+      statusText: this.statusText,
+      headers: new Headers(this.headers),
+      url: this.url
+    })
   };
 
-  return Promise;
-}();
+  Response.error = function() {
+    var response = new Response(null, {status: 0, statusText: ''});
+    response.type = 'error';
+    return response
+  };
 
-Promise$1.prototype.then = then;
-Promise$1.all = all;
-Promise$1.race = race;
-Promise$1.resolve = resolve$1;
-Promise$1.reject = reject$1;
-Promise$1._setScheduler = setScheduler;
-Promise$1._setAsap = setAsap;
-Promise$1._asap = asap;
+  var redirectStatuses = [301, 302, 303, 307, 308];
 
-/*global self*/
-function polyfill() {
-  var local = void 0;
-
-  if (typeof global !== 'undefined') {
-    local = global;
-  } else if (typeof self !== 'undefined') {
-    local = self;
-  } else {
-    try {
-      local = Function('return this')();
-    } catch (e) {
-      throw new Error('polyfill failed because global object is unavailable in this environment');
+  Response.redirect = function(url, status) {
+    if (redirectStatuses.indexOf(status) === -1) {
+      throw new RangeError('Invalid status code')
     }
+
+    return new Response(null, {status: status, headers: {location: url}})
+  };
+
+  exports.DOMException = self.DOMException;
+  try {
+    new exports.DOMException();
+  } catch (err) {
+    exports.DOMException = function(message, name) {
+      this.message = message;
+      this.name = name;
+      var error = Error(message);
+      this.stack = error.stack;
+    };
+    exports.DOMException.prototype = Object.create(Error.prototype);
+    exports.DOMException.prototype.constructor = exports.DOMException;
   }
 
-  var P = local.Promise;
+  function fetch(input, init) {
+    return new Promise(function(resolve, reject) {
+      var request = new Request(input, init);
 
-  if (P) {
-    var promiseToString = null;
-    try {
-      promiseToString = Object.prototype.toString.call(P.resolve());
-    } catch (e) {
-      // silently ignored
-    }
+      if (request.signal && request.signal.aborted) {
+        return reject(new exports.DOMException('Aborted', 'AbortError'))
+      }
 
-    if (promiseToString === '[object Promise]' && !P.cast) {
-      return;
-    }
+      var xhr = new XMLHttpRequest();
+
+      function abortXhr() {
+        xhr.abort();
+      }
+
+      xhr.onload = function() {
+        var options = {
+          status: xhr.status,
+          statusText: xhr.statusText,
+          headers: parseHeaders(xhr.getAllResponseHeaders() || '')
+        };
+        options.url = 'responseURL' in xhr ? xhr.responseURL : options.headers.get('X-Request-URL');
+        var body = 'response' in xhr ? xhr.response : xhr.responseText;
+        resolve(new Response(body, options));
+      };
+
+      xhr.onerror = function() {
+        reject(new TypeError('Network request failed'));
+      };
+
+      xhr.ontimeout = function() {
+        reject(new TypeError('Network request failed'));
+      };
+
+      xhr.onabort = function() {
+        reject(new exports.DOMException('Aborted', 'AbortError'));
+      };
+
+      xhr.open(request.method, request.url, true);
+
+      if (request.credentials === 'include') {
+        xhr.withCredentials = true;
+      } else if (request.credentials === 'omit') {
+        xhr.withCredentials = false;
+      }
+
+      if ('responseType' in xhr && support.blob) {
+        xhr.responseType = 'blob';
+      }
+
+      request.headers.forEach(function(value, name) {
+        xhr.setRequestHeader(name, value);
+      });
+
+      if (request.signal) {
+        request.signal.addEventListener('abort', abortXhr);
+
+        xhr.onreadystatechange = function() {
+          // DONE (success or failure)
+          if (xhr.readyState === 4) {
+            request.signal.removeEventListener('abort', abortXhr);
+          }
+        };
+      }
+
+      xhr.send(typeof request._bodyInit === 'undefined' ? null : request._bodyInit);
+    })
   }
 
-  local.Promise = Promise$1;
-}
+  fetch.polyfill = true;
 
-// Strange compat..
-Promise$1.polyfill = polyfill;
-Promise$1.Promise = Promise$1;
+  if (!self.fetch) {
+    self.fetch = fetch;
+    self.Headers = Headers;
+    self.Request = Request;
+    self.Response = Response;
+  }
 
-return Promise$1;
+  exports.Headers = Headers;
+  exports.Request = Request;
+  exports.Response = Response;
+  exports.fetch = fetch;
 
-})));
+  return exports;
 
+}({}));
+})(__self__);
+delete __self__.fetch.polyfill
+exports = __self__.fetch // To enable: import fetch from 'cross-fetch'
+exports.default = __self__.fetch // For TypeScript consumers without esModuleInterop.
+exports.fetch = __self__.fetch // To enable: import {fetch} from 'cross-fetch'
+exports.Headers = __self__.Headers
+exports.Request = __self__.Request
+exports.Response = __self__.Response
+module.exports = exports
 
-
-
-
-}).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":16}],9:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -3756,7 +3113,7 @@ function functionBindPolyfill(context) {
   };
 }
 
-},{}],10:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 'use strict';
 
 module.exports = annotate;
@@ -3814,7 +3171,7 @@ function annotate(fn) {
 
 }
 
-},{}],11:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 var http = require('http')
 var url = require('url')
 
@@ -3847,7 +3204,7 @@ function validateParams (params) {
   return params
 }
 
-},{"http":24,"url":46}],12:[function(require,module,exports){
+},{"http":22,"url":43}],11:[function(require,module,exports){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
   var eLen = (nBytes * 8) - mLen - 1
@@ -3933,7 +3290,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128
 }
 
-},{}],13:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -3962,10 +3319,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],14:[function(require,module,exports){
-module.exports = window.fetch || (window.fetch = require('unfetch').default || require('unfetch'));
-
-},{"unfetch":44}],15:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 /*
 object-assign
 (c) Sindre Sorhus
@@ -4057,7 +3411,7 @@ module.exports = shouldUseNative() ? Object.assign : function (target, source) {
 	return to;
 };
 
-},{}],16:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -4243,7 +3597,7 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],17:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 (function (global){
 /*! https://mths.be/punycode v1.4.1 by @mathias */
 ;(function(root) {
@@ -4780,7 +4134,7 @@ process.umask = function() { return 0; };
 }(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],18:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -4866,7 +4220,7 @@ var isArray = Array.isArray || function (xs) {
   return Object.prototype.toString.call(xs) === '[object Array]';
 };
 
-},{}],19:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -4953,13 +4307,13 @@ var objectKeys = Object.keys || function (obj) {
   return res;
 };
 
-},{}],20:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 'use strict';
 
 exports.decode = exports.parse = require('./decode');
 exports.encode = exports.stringify = require('./encode');
 
-},{"./decode":18,"./encode":19}],21:[function(require,module,exports){
+},{"./decode":16,"./encode":17}],19:[function(require,module,exports){
 'use strict';
 
 var has = Object.prototype.hasOwnProperty
@@ -5079,7 +4433,7 @@ function querystringify(obj, prefix) {
 exports.stringify = querystringify;
 exports.parse = querystring;
 
-},{}],22:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 'use strict';
 
 /**
@@ -5119,7 +4473,7 @@ module.exports = function required(port, protocol) {
   return port !== 0;
 };
 
-},{}],23:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 /* eslint-disable node/no-deprecated-api */
 var buffer = require('buffer')
 var Buffer = buffer.Buffer
@@ -5185,7 +4539,7 @@ SafeBuffer.allocUnsafeSlow = function (size) {
   return buffer.SlowBuffer(size)
 }
 
-},{"buffer":5}],24:[function(require,module,exports){
+},{"buffer":5}],22:[function(require,module,exports){
 (function (global){
 var ClientRequest = require('./lib/request')
 var response = require('./lib/response')
@@ -5273,7 +4627,7 @@ http.METHODS = [
 	'UNSUBSCRIBE'
 ]
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./lib/request":26,"./lib/response":27,"builtin-status-codes":6,"url":46,"xtend":52}],25:[function(require,module,exports){
+},{"./lib/request":24,"./lib/response":25,"builtin-status-codes":6,"url":43,"xtend":49}],23:[function(require,module,exports){
 (function (global){
 exports.fetch = isFunction(global.fetch) && isFunction(global.ReadableStream)
 
@@ -5336,7 +4690,7 @@ function isFunction (value) {
 xhr = null // Help gc
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],26:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 (function (process,global,Buffer){
 var capability = require('./capability')
 var inherits = require('inherits')
@@ -5655,7 +5009,7 @@ var unsafeHeaders = [
 ]
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
-},{"./capability":25,"./response":27,"_process":16,"buffer":5,"inherits":13,"readable-stream":42}],27:[function(require,module,exports){
+},{"./capability":23,"./response":25,"_process":14,"buffer":5,"inherits":12,"readable-stream":40}],25:[function(require,module,exports){
 (function (process,global,Buffer){
 var capability = require('./capability')
 var inherits = require('inherits')
@@ -5866,7 +5220,7 @@ IncomingMessage.prototype._onXHRProgress = function () {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
-},{"./capability":25,"_process":16,"buffer":5,"inherits":13,"readable-stream":42}],28:[function(require,module,exports){
+},{"./capability":23,"_process":14,"buffer":5,"inherits":12,"readable-stream":40}],26:[function(require,module,exports){
 'use strict';
 
 function _inheritsLoose(subClass, superClass) { subClass.prototype = Object.create(superClass.prototype); subClass.prototype.constructor = subClass; subClass.__proto__ = superClass; }
@@ -5995,7 +5349,7 @@ createErrorType('ERR_UNKNOWN_ENCODING', function (arg) {
 createErrorType('ERR_STREAM_UNSHIFT_AFTER_END_EVENT', 'stream.unshift() after end event');
 module.exports.codes = codes;
 
-},{}],29:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 (function (process){
 'use strict'
 
@@ -6016,7 +5370,7 @@ module.exports.emitExperimentalWarning = process.emitWarning
   : noop;
 
 }).call(this,require('_process'))
-},{"_process":16}],30:[function(require,module,exports){
+},{"_process":14}],28:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -6158,7 +5512,7 @@ Object.defineProperty(Duplex.prototype, 'destroyed', {
   }
 });
 }).call(this,require('_process'))
-},{"./_stream_readable":32,"./_stream_writable":34,"_process":16,"inherits":13}],31:[function(require,module,exports){
+},{"./_stream_readable":30,"./_stream_writable":32,"_process":14,"inherits":12}],29:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -6198,7 +5552,7 @@ function PassThrough(options) {
 PassThrough.prototype._transform = function (chunk, encoding, cb) {
   cb(null, chunk);
 };
-},{"./_stream_transform":33,"inherits":13}],32:[function(require,module,exports){
+},{"./_stream_transform":31,"inherits":12}],30:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -7288,7 +6642,7 @@ function indexOf(xs, x) {
   return -1;
 }
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../errors":28,"../experimentalWarning":29,"./_stream_duplex":30,"./internal/streams/async_iterator":35,"./internal/streams/buffer_list":36,"./internal/streams/destroy":37,"./internal/streams/state":40,"./internal/streams/stream":41,"_process":16,"buffer":5,"events":9,"inherits":13,"string_decoder/":43,"util":3}],33:[function(require,module,exports){
+},{"../errors":26,"../experimentalWarning":27,"./_stream_duplex":28,"./internal/streams/async_iterator":33,"./internal/streams/buffer_list":34,"./internal/streams/destroy":35,"./internal/streams/state":38,"./internal/streams/stream":39,"_process":14,"buffer":5,"events":8,"inherits":12,"string_decoder/":41,"util":3}],31:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -7490,7 +6844,7 @@ function done(stream, er, data) {
   if (stream._transformState.transforming) throw new ERR_TRANSFORM_ALREADY_TRANSFORMING();
   return stream.push(null);
 }
-},{"../errors":28,"./_stream_duplex":30,"inherits":13}],34:[function(require,module,exports){
+},{"../errors":26,"./_stream_duplex":28,"inherits":12}],32:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -8176,7 +7530,7 @@ Writable.prototype._destroy = function (err, cb) {
   cb(err);
 };
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../errors":28,"./_stream_duplex":30,"./internal/streams/destroy":37,"./internal/streams/state":40,"./internal/streams/stream":41,"_process":16,"buffer":5,"inherits":13,"util-deprecate":48}],35:[function(require,module,exports){
+},{"../errors":26,"./_stream_duplex":28,"./internal/streams/destroy":35,"./internal/streams/state":38,"./internal/streams/stream":39,"_process":14,"buffer":5,"inherits":12,"util-deprecate":45}],33:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -8386,7 +7740,7 @@ var createReadableStreamAsyncIterator = function createReadableStreamAsyncIterat
 
 module.exports = createReadableStreamAsyncIterator;
 }).call(this,require('_process'))
-},{"./end-of-stream":38,"_process":16}],36:[function(require,module,exports){
+},{"./end-of-stream":36,"_process":14}],34:[function(require,module,exports){
 'use strict';
 
 function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; var ownKeys = Object.keys(source); if (typeof Object.getOwnPropertySymbols === 'function') { ownKeys = ownKeys.concat(Object.getOwnPropertySymbols(source).filter(function (sym) { return Object.getOwnPropertyDescriptor(source, sym).enumerable; })); } ownKeys.forEach(function (key) { _defineProperty(target, key, source[key]); }); } return target; }
@@ -8576,7 +7930,7 @@ function () {
 
   return BufferList;
 }();
-},{"buffer":5,"util":3}],37:[function(require,module,exports){
+},{"buffer":5,"util":3}],35:[function(require,module,exports){
 (function (process){
 'use strict'; // undocumented cb() API, needed for core, not for public API
 
@@ -8664,7 +8018,7 @@ module.exports = {
   undestroy: undestroy
 };
 }).call(this,require('_process'))
-},{"_process":16}],38:[function(require,module,exports){
+},{"_process":14}],36:[function(require,module,exports){
 // Ported from https://github.com/mafintosh/end-of-stream with
 // permission from the author, Mathias Buus (@mafintosh).
 'use strict';
@@ -8769,7 +8123,7 @@ function eos(stream, opts, callback) {
 }
 
 module.exports = eos;
-},{"../../../errors":28}],39:[function(require,module,exports){
+},{"../../../errors":26}],37:[function(require,module,exports){
 // Ported from https://github.com/mafintosh/pump with
 // permission from the author, Mathias Buus (@mafintosh).
 'use strict';
@@ -8867,7 +8221,7 @@ function pipeline() {
 }
 
 module.exports = pipeline;
-},{"../../../errors":28,"./end-of-stream":38}],40:[function(require,module,exports){
+},{"../../../errors":26,"./end-of-stream":36}],38:[function(require,module,exports){
 'use strict';
 
 var ERR_INVALID_OPT_VALUE = require('../../../errors').codes.ERR_INVALID_OPT_VALUE;
@@ -8895,10 +8249,10 @@ function getHighWaterMark(state, options, duplexKey, isDuplex) {
 module.exports = {
   getHighWaterMark: getHighWaterMark
 };
-},{"../../../errors":28}],41:[function(require,module,exports){
+},{"../../../errors":26}],39:[function(require,module,exports){
 module.exports = require('events').EventEmitter;
 
-},{"events":9}],42:[function(require,module,exports){
+},{"events":8}],40:[function(require,module,exports){
 exports = module.exports = require('./lib/_stream_readable.js');
 exports.Stream = exports;
 exports.Readable = exports;
@@ -8909,7 +8263,7 @@ exports.PassThrough = require('./lib/_stream_passthrough.js');
 exports.finished = require('./lib/internal/streams/end-of-stream.js');
 exports.pipeline = require('./lib/internal/streams/pipeline.js');
 
-},{"./lib/_stream_duplex.js":30,"./lib/_stream_passthrough.js":31,"./lib/_stream_readable.js":32,"./lib/_stream_transform.js":33,"./lib/_stream_writable.js":34,"./lib/internal/streams/end-of-stream.js":38,"./lib/internal/streams/pipeline.js":39}],43:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":28,"./lib/_stream_passthrough.js":29,"./lib/_stream_readable.js":30,"./lib/_stream_transform.js":31,"./lib/_stream_writable.js":32,"./lib/internal/streams/end-of-stream.js":36,"./lib/internal/streams/pipeline.js":37}],41:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -9206,11 +8560,7 @@ function simpleWrite(buf) {
 function simpleEnd(buf) {
   return buf && buf.length ? this.write(buf) : '';
 }
-},{"safe-buffer":23}],44:[function(require,module,exports){
-module.exports=function(e,n){return n=n||{},new Promise(function(t,r){var s=new XMLHttpRequest,o=[],u=[],i={},a=function(){return{ok:2==(s.status/100|0),statusText:s.statusText,status:s.status,url:s.responseURL,text:function(){return Promise.resolve(s.responseText)},json:function(){return Promise.resolve(JSON.parse(s.responseText))},blob:function(){return Promise.resolve(new Blob([s.response]))},clone:a,headers:{keys:function(){return o},entries:function(){return u},get:function(e){return i[e.toLowerCase()]},has:function(e){return e.toLowerCase()in i}}}};for(var l in s.open(n.method||"get",e,!0),s.onload=function(){s.getAllResponseHeaders().replace(/^(.*?):[^\S\n]*([\s\S]*?)$/gm,function(e,n,t){o.push(n=n.toLowerCase()),u.push([n,t]),i[n]=i[n]?i[n]+","+t:t}),t(a())},s.onerror=r,s.withCredentials="include"==n.credentials,n.headers)s.setRequestHeader(l,n.headers[l]);s.send(n.body||null)})};
-
-
-},{}],45:[function(require,module,exports){
+},{"safe-buffer":21}],42:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -9664,7 +9014,7 @@ Url.qs = qs;
 module.exports = Url;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"querystringify":21,"requires-port":22}],46:[function(require,module,exports){
+},{"querystringify":19,"requires-port":20}],43:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -10398,7 +9748,7 @@ Url.prototype.parseHost = function() {
   if (host) this.hostname = host;
 };
 
-},{"./util":47,"punycode":17,"querystring":20}],47:[function(require,module,exports){
+},{"./util":44,"punycode":15,"querystring":18}],44:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -10416,7 +9766,7 @@ module.exports = {
   }
 };
 
-},{}],48:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 (function (global){
 
 /**
@@ -10487,7 +9837,7 @@ function config (name) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],49:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -10512,14 +9862,14 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],50:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],51:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -11109,7 +10459,7 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":50,"_process":16,"inherits":49}],52:[function(require,module,exports){
+},{"./support/isBuffer":47,"_process":14,"inherits":46}],49:[function(require,module,exports){
 module.exports = extend
 
 var hasOwnProperty = Object.prototype.hasOwnProperty;
@@ -11130,24 +10480,21 @@ function extend() {
     return target
 }
 
-},{}],53:[function(require,module,exports){
-'use strict';
+},{}],50:[function(require,module,exports){
+'use strict'
 
-var APIVersion = '2.7';
+var APIVersion = '2.7'
 
-require('es6-promise/auto');
-var btoa = require('btoa-lite');
-var fetch = require('isomorphic-unfetch');
-var errors = require('./errors');
-var query = require('./query');
-var values = require('./values');
-var json = require('./_json');
-var RequestResult = require('./RequestResult');
-var util = require('./_util');
-var PageHelper = require('./PageHelper');
-var http = require('http');
-var https = require('https');
-var parse = require('url-parse');
+var btoa = require('btoa-lite')
+var fetch = require('cross-fetch')
+var errors = require('./errors')
+var query = require('./query')
+var values = require('./values')
+var json = require('./_json')
+var RequestResult = require('./RequestResult')
+var util = require('./_util')
+var PageHelper = require('./PageHelper')
+var parse = require('url-parse')
 
 /**
  * The callback that will be executed after every completed request.
@@ -11176,6 +10523,8 @@ var parse = require('url-parse');
  *   Object that configures this FaunaDB client.
  * @param {?string} options.domain
  *   Base URL for the FaunaDB server.
+ * @param {?{ string: string }} options.headers
+ *   Base URL for the FaunaDB server.
  * @param {?('http'|'https')} options.scheme
  *   HTTP scheme to use.
  * @param {?number} options.port
@@ -11188,7 +10537,7 @@ var parse = require('url-parse');
  *   Configures http/https keepAlive option (ignored in browser environments)
  */
 function Client(options) {
-  var isNodeEnv = typeof window === 'undefined';
+  var isNodeEnv = typeof window === 'undefined'
   var opts = util.applyDefaults(options, {
     domain: 'db.fauna.com',
     scheme: 'https',
@@ -11196,22 +10545,27 @@ function Client(options) {
     secret: null,
     timeout: 60,
     observer: null,
-    keepAlive: true
-  });
-  var isHttps = opts.scheme === 'https';
+    keepAlive: true,
+    headers: {},
+  })
+  var isHttps = opts.scheme === 'https'
 
   if (opts.port === null) {
-    opts.port = isHttps ? 443 : 80;
+    opts.port = isHttps ? 443 : 80
   }
 
-  this._baseUrl = opts.scheme + '://' + opts.domain + ':' + opts.port;
-  this._timeout = Math.floor(opts.timeout * 1000);
-  this._secret = opts.secret;
-  this._observer = opts.observer;
-  this._lastSeen = null;
+  this._baseUrl = opts.scheme + '://' + opts.domain + ':' + opts.port
+  this._timeout = Math.floor(opts.timeout * 1000)
+  this._secret = opts.secret
+  this._observer = opts.observer
+  this._lastSeen = null
+  this._headers = opts.headers
 
   if (isNodeEnv && opts.keepAlive) {
-    this._keepAliveEnabledAgent = new (isHttps ? https : http).Agent({ keepAlive: true });
+    this._keepAliveEnabledAgent = new (isHttps
+      ? require('https')
+      : require('http')
+    ).Agent({ keepAlive: true })
   }
 }
 
@@ -11221,11 +10575,15 @@ function Client(options) {
  * and the query functions in this documentation.
  * @param expression {Expr}
  *   The query to execute. Created from query functions such as {@link add}.
+ * @param {?Object} options
+ *   Object that configures the current query, overriding FaunaDB client options.
+ * @param {?string} options.secret FaunaDB secret (see [Reference Documentation](https://app.fauna.com/documentation/intro/security))
  * @return {external:Promise<Object>} FaunaDB response object.
  */
-Client.prototype.query = function (expression) {
-  return this._execute('POST', '', query.wrap(expression));
-};
+
+Client.prototype.query = function(expression, options) {
+  return this._execute('POST', '', query.wrap(expression), null, options)
+}
 
 /**
  * Returns a {@link PageHelper} for the given Query expression.
@@ -11234,143 +10592,165 @@ Client.prototype.query = function (expression) {
  *   The Query expression to paginate over.
  * @param params {Object}
  *   Options to be passed to the paginate function. See [paginate](https://app.fauna.com/documentation/reference/queryapi#read-functions).
+ * @param options {?Object}
+ *   Object that configures the current pagination queries, overriding FaunaDB client options.
+ * @param {?string} options.secret FaunaDB secret (see [Reference Documentation](https://app.fauna.com/documentation/intro/security))
  * @returns {PageHelper} A PageHelper that wraps the provided expression.
  */
-Client.prototype.paginate = function(expression, params) {
-  params = defaults(params, {});
+Client.prototype.paginate = function(expression, params, options) {
+  params = defaults(params, {})
+  options = defaults(options, {})
 
-  return new PageHelper(this, expression, params);
-};
+  return new PageHelper(this, expression, params, options)
+}
 
 /**
  * Sends a `ping` request to FaunaDB.
  * @return {external:Promise<string>} Ping response.
  */
-Client.prototype.ping = function (scope, timeout) {
-  return this._execute('GET', 'ping', null, { scope: scope, timeout: timeout });
-};
+Client.prototype.ping = function(scope, timeout) {
+  return this._execute('GET', 'ping', null, { scope: scope, timeout: timeout })
+}
 
 /**
  * Get the freshest timestamp reported to this client.
  * @returns {number} the last seen transaction time
  */
 Client.prototype.getLastTxnTime = function() {
-  return this._lastSeen;
-};
+  return this._lastSeen
+}
 
 /**
-  * Sync the freshest timestamp seen by this client.
-  *
-  * This has no effect if staler than currently stored timestamp.
-  * WARNING: This should be used only when coordinating timestamps across
-  *          multiple clients. Moving the timestamp arbitrarily forward into
-  *          the future will cause transactions to stall.
+ * Sync the freshest timestamp seen by this client.
+ *
+ * This has no effect if staler than currently stored timestamp.
+ * WARNING: This should be used only when coordinating timestamps across
+ *          multiple clients. Moving the timestamp arbitrarily forward into
+ *          the future will cause transactions to stall.
  * @param time {number} the last seen transaction time
  */
 Client.prototype.syncLastTxnTime = function(time) {
-  if (this._lastSeen == null) {
-    this._lastSeen = time;
-  } else if (this._lastSeen < time) {
-    this._lastSeen = time;
+  if (this._lastSeen == null || this._lastSeen < time) {
+    this._lastSeen = time
   }
-};
+}
 
-Client.prototype._execute = function (method, path, data, query) {
-  query = defaults(query, null);
+Client.prototype._execute = function(method, path, data, query, options) {
+  query = defaults(query, null)
 
   if (path instanceof values.Ref) {
-    path = path.value;
+    path = path.value
   }
 
   if (query !== null) {
-    query = util.removeUndefinedValues(query);
+    query = util.removeUndefinedValues(query)
   }
 
-  var startTime = Date.now();
-  var self = this;
-  var body = ['GET', 'HEAD'].indexOf(method) >= 0 ? undefined : JSON.stringify(data);
+  var startTime = Date.now()
+  var self = this
+  var body =
+    ['GET', 'HEAD'].indexOf(method) >= 0 ? undefined : JSON.stringify(data)
 
-  return this._performRequest(method, path, body, query).then(function (response) {
-    var endTime = Date.now();
-    var responseText = response.text;
-    var responseObject = json.parseJSON(responseText);
+  return this._performRequest(method, path, body, query, options).then(function(
+    response
+  ) {
+    var endTime = Date.now()
+    var responseText = response.text
+    var responseObject = json.parseJSON(responseText)
     var requestResult = new RequestResult(
-      self,
-      method, path, query, body, data,
-      responseText, responseObject, response.status, responseHeadersAsObject(response),
-      startTime, endTime);
-    var txnTimeHeaderKey = 'x-txn-time';
+      method,
+      path,
+      query,
+      body,
+      data,
+      responseText,
+      responseObject,
+      response.status,
+      responseHeadersAsObject(response),
+      startTime,
+      endTime
+    )
+    var txnTimeHeaderKey = 'x-txn-time'
 
     if (response.headers.has(txnTimeHeaderKey)) {
-      self.syncLastTxnTime(parseInt(response.headers.get(txnTimeHeaderKey), 10));
+      self.syncLastTxnTime(parseInt(response.headers.get(txnTimeHeaderKey), 10))
     }
 
     if (self._observer != null) {
-      self._observer(requestResult);
+      self._observer(requestResult, self)
     }
 
-    errors.FaunaHTTPError.raiseForStatusCode(requestResult);
-    return responseObject['resource'];
-  });
-};
+    errors.FaunaHTTPError.raiseForStatusCode(requestResult)
+    return responseObject['resource']
+  })
+}
 
-Client.prototype._performRequest = function (method, path, body, query) {
-  var url = parse(this._baseUrl);
-  url.set('pathname', path);
-  url.set('query', query);
+Client.prototype._performRequest = function(
+  method,
+  path,
+  body,
+  query,
+  options
+) {
+  var url = parse(this._baseUrl)
+  url.set('pathname', path)
+  url.set('query', query)
+  options = defaults(options, {})
+  const secret = options.secret || this._secret
 
   return fetch(url.href, {
     agent: this._keepAliveEnabledAgent,
     body: body,
     headers: util.removeNullAndUndefinedValues({
-      Authorization: this._secret && secretHeader(this._secret),
+      ...this._headers,
+      Authorization: secret && secretHeader(secret),
       'X-FaunaDB-API-Version': APIVersion,
       'X-Fauna-Driver': 'Javascript',
-      'X-Last-Seen-Txn': this._lastSeen
+      'X-Last-Seen-Txn': this._lastSeen,
     }),
     method: method,
-    timeout: this._timeout
+    timeout: this._timeout,
   }).then(function(response) {
-      return response.text().then(function(text) {
-        response.text = text;
-        return response;
-      });
-    });
-};
+    return response.text().then(function(text) {
+      response.text = text
+      return response
+    })
+  })
+}
 
 function defaults(obj, def) {
   if (obj === undefined) {
-    return def;
+    return def
   } else {
-    return obj;
+    return obj
   }
 }
 
 function secretHeader(secret) {
-  return 'Basic ' + btoa(secret + ':');
+  return 'Basic ' + btoa(secret + ':')
 }
 
 function responseHeadersAsObject(response) {
-  var responseHeaders = response.headers;
-  var headers = {};
+  var responseHeaders = response.headers
+  var headers = {}
 
   if (typeof responseHeaders.forEach === 'function') {
     responseHeaders.forEach(function(value, name) {
-      headers[name] = value;
-    });
+      headers[name] = value
+    })
   } else {
     responseHeaders.entries().forEach(function(pair) {
-      headers[pair[0]] = pair[1];
-    });
+      headers[pair[0]] = pair[1]
+    })
   }
 
-  return headers;
+  return headers
 }
 
-module.exports = Client;
+module.exports = Client
 
-},{"./PageHelper":55,"./RequestResult":56,"./_json":57,"./_util":58,"./errors":60,"./query":61,"./values":62,"btoa-lite":4,"es6-promise/auto":7,"http":24,"https":11,"isomorphic-unfetch":14,"url-parse":45}],54:[function(require,module,exports){
-'use strict';
+},{"./PageHelper":52,"./RequestResult":53,"./_json":54,"./_util":55,"./errors":57,"./query":58,"./values":59,"btoa-lite":4,"cross-fetch":7,"http":22,"https":10,"url-parse":42}],51:[function(require,module,exports){
+'use strict'
 
 /**
  * A representation of a FaunaDB Query Expression. Generally, you shouldn't need
@@ -11380,110 +10760,147 @@ module.exports = Client;
  * @constructor
  */
 function Expr(obj) {
-  this.raw = obj;
+  this.raw = obj
 }
 
 Expr.prototype.toJSON = function() {
-  return this.raw;
-};
+  return this.raw
+}
 
-var varArgsFunctions = ['Do', 'Call', 'Union', 'Intersection', 'Difference', 'Equals',
-                        'Add', 'BitAnd', 'BitOr', 'BitXor',  'Divide', 'Max', 'Min',
-                        'Modulo', 'Multiply', 'Subtract',
-                        'LT', 'LTE', 'GT', 'GTE', 'And', 'Or'];
+var varArgsFunctions = [
+  'Do',
+  'Call',
+  'Union',
+  'Intersection',
+  'Difference',
+  'Equals',
+  'Add',
+  'BitAnd',
+  'BitOr',
+  'BitXor',
+  'Divide',
+  'Max',
+  'Min',
+  'Modulo',
+  'Multiply',
+  'Subtract',
+  'LT',
+  'LTE',
+  'GT',
+  'GTE',
+  'And',
+  'Or',
+]
 var specialCases = {
   is_nonempty: 'is_non_empty',
   lt: 'LT',
   lte: 'LTE',
   gt: 'GT',
-  gte: 'GTE'
-};
+  gte: 'GTE',
+}
 
 var exprToString = function(expr, caller) {
   if (expr instanceof Expr) {
-    if ('value' in expr)
-      return expr.toString();
+    if ('value' in expr) return expr.toString()
 
-    expr = expr.raw;
+    expr = expr.raw
   }
 
-  var type = typeof expr;
+  var type = typeof expr
 
-  if (type === 'string')
-    return '"' + expr + '"';
+  if (type === 'string') {
+    return '"' + expr + '"'
+  }
 
-  if (type === 'symbol' || type === 'number' || type === 'boolean')
-    return expr.toString();
+  if (type === 'symbol' || type === 'number' || type === 'boolean') {
+    return expr.toString()
+  }
 
-  if (type === 'undefined')
-    return 'undefined';
+  if (type === 'undefined') {
+    return 'undefined'
+  }
 
-  if (expr === null)
-    return 'null';
+  if (expr === null) {
+    return 'null'
+  }
 
   var printObject = function(obj) {
-    return '{' + Object.keys(obj).map(function(k) { return k + ': ' + exprToString(obj[k])}).join(', ') + '}';
-  };
+    return (
+      '{' +
+      Object.keys(obj)
+        .map(function(k) {
+          return k + ': ' + exprToString(obj[k])
+        })
+        .join(', ') +
+      '}'
+    )
+  }
 
   var printArray = function(array, toStr) {
-    return array.map(function(item) { return toStr(item); }).join(', ');
-  };
+    return array
+      .map(function(item) {
+        return toStr(item)
+      })
+      .join(', ')
+  }
 
   if (Array.isArray(expr)) {
-    var array = printArray(expr, exprToString);
+    var array = printArray(expr, exprToString)
 
-    return varArgsFunctions.indexOf(caller) != -1 ? array : '[' + array + ']';
+    return varArgsFunctions.indexOf(caller) != -1 ? array : '[' + array + ']'
   }
 
   if ('let' in expr && 'in' in expr) {
-    var letExpr = '';
+    var letExpr = ''
 
     if (Array.isArray(expr['let']))
-      letExpr = '[' + printArray(expr['let'], printObject) + ']';
-    else
-      letExpr = printObject(expr['let']);
+      letExpr = '[' + printArray(expr['let'], printObject) + ']'
+    else letExpr = printObject(expr['let'])
 
-    return 'Let(' + letExpr + ', ' + exprToString(expr['in']) + ')';
+    return 'Let(' + letExpr + ', ' + exprToString(expr['in']) + ')'
   }
 
-  if ('object' in expr)
-    return printObject(expr['object']);
+  if ('object' in expr) return printObject(expr['object'])
 
-  var keys = Object.keys(expr);
-  var fn = keys[0];
+  var keys = Object.keys(expr)
+  var fn = keys[0]
 
-  if (fn in specialCases)
-    fn = specialCases[fn];
+  if (fn in specialCases) fn = specialCases[fn]
 
-  fn = fn.split('_').map(function(str) { return str.charAt(0).toUpperCase() + str.slice(1); }).join('');
+  fn = fn
+    .split('_')
+    .map(function(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1)
+    })
+    .join('')
 
   var args = keys.map(function(k) {
-    var v = expr[k];
-    return exprToString(v, fn);
-  });
+    var v = expr[k]
+    return exprToString(v, fn)
+  })
 
   var shouldReverseArgs = ['filter', 'map', 'foreach'].some(function(fn) {
-    return fn in expr;
-  });
+    return fn in expr
+  })
 
-  if(shouldReverseArgs)
-    args.reverse();
+  if (shouldReverseArgs) {
+    args.reverse()
+  }
 
-  args = args.join(', ');
+  args = args.join(', ')
 
-  return fn + '(' + args + ')';
-};
+  return fn + '(' + args + ')'
+}
 
-Expr.toString = exprToString;
+Expr.toString = exprToString
 
-module.exports = Expr;
+module.exports = Expr
 
-},{}],55:[function(require,module,exports){
-'use strict';
+},{}],52:[function(require,module,exports){
+'use strict'
 
-require('es6-promise/auto');
-var query = require('./query');
-var objectAssign = require('object-assign');
+var query = require('./query')
+var objectAssign = require('object-assign')
 
 /**
  * A FaunaDB Lambda expression to be passed into one of the collection
@@ -11525,40 +10942,50 @@ var objectAssign = require('object-assign');
  *   The set to paginate.
  * @param {?Object} params
  *   Parameters to be passed to the FaunaDB Paginate function.
+ * @param {?Object} options
+ *   Object that configures the current pagination, overriding FaunaDB client options.
+ * @param {?string} options.secret FaunaDB secret (see [Reference Documentation](https://app.fauna.com/documentation/intro/security))
  * @constructor
  */
-function PageHelper(client, set, params) {
+function PageHelper(client, set, params, options) {
   if (params === undefined) {
-    params = {};
+    params = {}
   }
 
-  this.reverse = false;
-  this.params = {};
+  if (options === undefined) {
+    options = {}
+  }
 
-  this.before = undefined;
-  this.after = undefined;
+  this.reverse = false
+  this.params = {}
 
-  objectAssign(this.params, params);
+  this.before = undefined
+  this.after = undefined
 
-  var cursorParams = this.params.cursor || this.params;
+  objectAssign(this.params, params)
+
+  var cursorParams = this.params.cursor || this.params
 
   if ('before' in cursorParams) {
-    this.before = cursorParams.before;
-    delete cursorParams.before;
+    this.before = cursorParams.before
+    delete cursorParams.before
   } else if ('after' in cursorParams) {
-    this.after = cursorParams.after;
-    delete cursorParams.after;
+    this.after = cursorParams.after
+    delete cursorParams.after
   }
 
-  this.client = client;
-  this.set = set;
+  this.options = {}
+  objectAssign(this.options, options)
+
+  this.client = client
+  this.set = set
 
   /**
    * @member {Array.<Function>}
    * @type {Array.<Function>}
    * @private
    */
-  this._faunaFunctions = [];
+  this._faunaFunctions = []
 }
 
 /**
@@ -11572,10 +10999,12 @@ function PageHelper(client, set, params) {
  *
  */
 PageHelper.prototype.map = function(lambda) {
-  var rv = this._clone();
-  rv._faunaFunctions.push(function(q) { return query.Map(q, lambda); });
-  return rv;
-};
+  var rv = this._clone()
+  rv._faunaFunctions.push(function(q) {
+    return query.Map(q, lambda)
+  })
+  return rv
+}
 
 /**
  * Wraps the set to be paginated with a FaunaDB Filter funciton.
@@ -11587,10 +11016,12 @@ PageHelper.prototype.map = function(lambda) {
  * @return {PageHelper}
  */
 PageHelper.prototype.filter = function(lambda) {
-  var rv = this._clone();
-  rv._faunaFunctions.push(function(q) { return query.Filter(q, lambda); });
-  return rv;
-};
+  var rv = this._clone()
+  rv._faunaFunctions.push(function(q) {
+    return query.Filter(q, lambda)
+  })
+  return rv
+}
 
 /**
  * Executes the provided function for each page.
@@ -11600,8 +11031,10 @@ PageHelper.prototype.filter = function(lambda) {
  * @returns {external:Promise.<void>}
  */
 PageHelper.prototype.each = function(lambda) {
-  return this._retrieveNextPage(this.after, false).then(this._consumePages(lambda, false));
-};
+  return this._retrieveNextPage(this.after, false).then(
+    this._consumePages(lambda, false)
+  )
+}
 
 /**
  * Executes the provided function for each page, in the reverse direction.
@@ -11609,8 +11042,10 @@ PageHelper.prototype.each = function(lambda) {
  * @returns {external:Promise.<void>}
  */
 PageHelper.prototype.eachReverse = function(lambda) {
-  return this._retrieveNextPage(this.before, true).then(this._consumePages(lambda, true));
-};
+  return this._retrieveNextPage(this.before, true).then(
+    this._consumePages(lambda, true)
+  )
+}
 
 /**
  * Queries for the previous page from the current cursor point; this mutates
@@ -11620,9 +11055,11 @@ PageHelper.prototype.eachReverse = function(lambda) {
  * @returns {external:Promise.<object>}
  */
 PageHelper.prototype.previousPage = function() {
-  var self = this;
-  return this._retrieveNextPage(this.before, true).then(this._adjustCursors.bind(self));
-};
+  var self = this
+  return this._retrieveNextPage(this.before, true).then(
+    this._adjustCursors.bind(self)
+  )
+}
 
 /**
  * Queries for the next page from the current cursor point; this mutates
@@ -11632,51 +11069,55 @@ PageHelper.prototype.previousPage = function() {
  * @returns {external:Promise.<object>}
  */
 PageHelper.prototype.nextPage = function() {
-  var self = this;
-  return this._retrieveNextPage(this.after, false).then(this._adjustCursors.bind(self));
-};
+  var self = this
+  return this._retrieveNextPage(this.after, false).then(
+    this._adjustCursors.bind(self)
+  )
+}
 
 PageHelper.prototype._adjustCursors = function(page) {
   if (page.after !== undefined) {
-    this.after = page.after;
+    this.after = page.after
   }
 
   if (page.before !== undefined) {
-    this.before = page.before;
+    this.before = page.before
   }
 
-  return page.data;
-};
+  return page.data
+}
 
 PageHelper.prototype._consumePages = function(lambda, reverse) {
-  var self = this;
-  return function (page) {
+  var self = this
+  return function(page) {
     var data = []
     page.data.forEach(function(item) {
       if (item.document) {
-        item.instance = item.document;
+        item.instance = item.document
       }
       if (item.value && item.value.document) {
-        item.value.instance = item.value.document;
+        item.value.instance = item.value.document
       }
-      data.push(item);
-    });
-    lambda(data);
+      data.push(item)
+    })
+    lambda(data)
 
-    var nextCursor;
+    var nextCursor
     if (reverse) {
-      nextCursor = page.before;
+      nextCursor = page.before
     } else {
-      nextCursor = page.after;
+      nextCursor = page.after
     }
 
     if (nextCursor !== undefined) {
-      return self._retrieveNextPage(nextCursor, reverse).then(self._consumePages(lambda, reverse));
+      return self
+        ._retrieveNextPage(nextCursor, reverse)
+        .then(self._consumePages(lambda, reverse))
     } else {
-      return Promise.resolve();
+      return Promise.resolve()
     }
-  };
-};
+  }
+}
 
 /**
  *
@@ -11684,32 +11125,32 @@ PageHelper.prototype._consumePages = function(lambda, reverse) {
  * @private
  */
 PageHelper.prototype._retrieveNextPage = function(cursor, reverse) {
-  var opts = {};
-  objectAssign(opts, this.params);
-  var cursorOpts = opts.cursor || opts;
+  var opts = {}
+  objectAssign(opts, this.params)
+  var cursorOpts = opts.cursor || opts
 
   if (cursor !== undefined) {
     if (reverse) {
-      cursorOpts.before = cursor;
+      cursorOpts.before = cursor
     } else {
-      cursorOpts.after = cursor;
+      cursorOpts.after = cursor
     }
   } else {
     if (reverse) {
-      cursorOpts.before = null;
+      cursorOpts.before = null
     }
   }
 
-  var q = query.Paginate(this.set, opts);
+  var q = query.Paginate(this.set, opts)
 
   if (this._faunaFunctions.length > 0) {
     this._faunaFunctions.forEach(function(lambda) {
-      q = lambda(q);
-    });
+      q = lambda(q)
+    })
   }
 
-  return this.client.query(q);
-};
+  return this.client.query(q, this.options)
+}
 
 /**
  * @private
@@ -11721,21 +11162,19 @@ PageHelper.prototype._clone = function() {
     set: { value: this.set },
     _faunaFunctions: { value: this._faunaFunctions },
     before: { value: this.before },
-    after: { value: this.after }
-  });
-};
+    after: { value: this.after },
+  })
+}
 
-module.exports = PageHelper;
+module.exports = PageHelper
 
-},{"./query":61,"es6-promise/auto":7,"object-assign":15}],56:[function(require,module,exports){
-'use strict';
+},{"./query":58,"object-assign":13}],53:[function(require,module,exports){
+'use strict'
 
 /**
  * A structure containing the request and response context for a given FaunaDB request.
  * Provided to an observer function optionally defined in the {@link Client} constructor.
  *
- * @param {Client} client
- *   The FaunaDB client used to execute the request.
  * @param {'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'} method
  *   The HTTP method used in the request.
  * @param {string} path
@@ -11760,127 +11199,130 @@ module.exports = PageHelper;
  *   The time the response was received by the client.
  * @constructor
  */
-function RequestResult(client, method, path, query, requestRaw, requestContent, responseRaw, responseContent, statusCode, responseHeaders, startTime, endTime) {
-  /** @type {Client} */
-  this.client = client;
-
+function RequestResult(
+  method,
+  path,
+  query,
+  requestRaw,
+  requestContent,
+  responseRaw,
+  responseContent,
+  statusCode,
+  responseHeaders,
+  startTime,
+  endTime
+) {
   /** @type {'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'} */
-  this.method = method;
+  this.method = method
 
   /** @type {string} */
-  this.path = path;
+  this.path = path
 
   /**
    * URL query. Null unless `method == 'get'`.
    * *Not* related to {@link Client.query}.
    * @type {object}
    */
-  this.query = query;
+  this.query = query
 
   /** @type {string} */
-  this.requestRaw = requestRaw;
+  this.requestRaw = requestRaw
 
   /** @type {object} */
-  this.requestContent = requestContent;
+  this.requestContent = requestContent
 
   /** @type {string} */
-  this.responseRaw = responseRaw;
+  this.responseRaw = responseRaw
 
   /**
    * Parsed value returned by the server.
    * Includes "resource" wrapper dict, or may be an "errors" dict instead.
    * @type {object}
    */
-  this.responseContent = responseContent;
+  this.responseContent = responseContent
 
   /** @type {number} */
-  this.statusCode = statusCode;
+  this.statusCode = statusCode
 
   /** @type {object} */
-  this.responseHeaders = responseHeaders;
+  this.responseHeaders = responseHeaders
 
   /** @type {number} */
-  this.startTime = startTime;
+  this.startTime = startTime
 
   /** @type {number} */
-  this.endTime = endTime;
+  this.endTime = endTime
 }
-
-/**
- * Returns the auth object configured in the client.
- * @type {{user: string, pass: string}}
- */
-Object.defineProperty(RequestResult.prototype, 'auth', { get: function() {
-  return this.client._secret;
-} });
 
 /**
  * `this.endTime - this.startTime`: Time taken in milliseconds.
  * @type {number}
  */
-Object.defineProperty(RequestResult.prototype, 'timeTaken', { get: function() {
-  return this.endTime - this.startTime;
-} });
+Object.defineProperty(RequestResult.prototype, 'timeTaken', {
+  get: function() {
+    return this.endTime - this.startTime
+  },
+})
 
-module.exports = RequestResult;
+module.exports = RequestResult
 
-},{}],57:[function(require,module,exports){
-'use strict';
+},{}],54:[function(require,module,exports){
+'use strict'
 
-var values = require('./values');
+var values = require('./values')
 
 function toJSON(object, pretty) {
-  pretty = typeof pretty !== 'undefined' ? pretty : false;
+  pretty = typeof pretty !== 'undefined' ? pretty : false
 
   if (pretty) {
-    return JSON.stringify(object, null, '  ');
+    return JSON.stringify(object, null, '  ')
   } else {
-    return JSON.stringify(object);
+    return JSON.stringify(object)
   }
 }
 
 function parseJSON(json) {
-  return JSON.parse(json, json_parse);
+  return JSON.parse(json, json_parse)
 }
 
 function json_parse(_, val) {
   if (typeof val !== 'object' || val === null) {
-    return val;
+    return val
   } else if ('@ref' in val) {
-    var ref = val['@ref'];
+    var ref = val['@ref']
 
     if (!('collection' in ref) && !('database' in ref)) {
-      return values.Native.fromName(ref['id']);
+      return values.Native.fromName(ref['id'])
     }
 
-    var col = json_parse('collection', ref['collection']);
-    var db = json_parse('database', ref['database']);
+    var col = json_parse('collection', ref['collection'])
+    var db = json_parse('database', ref['database'])
 
-    return new values.Ref(ref['id'], col, db);
+    return new values.Ref(ref['id'], col, db)
   } else if ('@obj' in val) {
-    return val['@obj'];
+    return val['@obj']
   } else if ('@set' in val) {
-    return new values.SetRef(val['@set']);
+    return new values.SetRef(val['@set'])
   } else if ('@ts' in val) {
-    return new values.FaunaTime(val['@ts']);
+    return new values.FaunaTime(val['@ts'])
   } else if ('@date' in val) {
-    return new values.FaunaDate(val['@date']);
+    return new values.FaunaDate(val['@date'])
   } else if ('@bytes' in val) {
-    return new values.Bytes(val['@bytes']);
+    return new values.Bytes(val['@bytes'])
   } else if ('@query' in val) {
-    return new values.Query(val['@query']);
+    return new values.Query(val['@query'])
   } else {
-    return val;
+    return val
   }
 }
 
 module.exports = {
   toJSON: toJSON,
-  parseJSON: parseJSON
-};
+  parseJSON: parseJSON,
+}
 
-},{"./values":62}],58:[function(require,module,exports){
-'use strict';
+},{"./values":59}],55:[function(require,module,exports){
+'use strict'
 
 /**
  * Used for functions that take an options objects.
@@ -11890,22 +11332,22 @@ module.exports = {
  * @private
  */
 function applyDefaults(provided, defaults) {
-  var out = {};
+  var out = {}
 
   for (var providedKey in provided) {
     if (!(providedKey in defaults)) {
-      throw new Error('No such option ' + providedKey);
+      throw new Error('No such option ' + providedKey)
     }
-    out[providedKey] = provided[providedKey];
+    out[providedKey] = provided[providedKey]
   }
 
   for (var defaultsKey in defaults) {
     if (!(defaultsKey in out)) {
-      out[defaultsKey] = defaults[defaultsKey];
+      out[defaultsKey] = defaults[defaultsKey]
     }
   }
 
-  return out;
+  return out
 }
 
 /**
@@ -11913,14 +11355,14 @@ function applyDefaults(provided, defaults) {
  * @private
  * */
 function removeNullAndUndefinedValues(object) {
-  var res = {};
+  var res = {}
   for (var key in object) {
-    var val = object[key];
+    var val = object[key]
     if (val !== null && val !== undefined) {
-      res[key] = val;
+      res[key] = val
     }
   }
-  return res;
+  return res
 }
 
 /**
@@ -11928,26 +11370,26 @@ function removeNullAndUndefinedValues(object) {
  * @private
  * */
 function removeUndefinedValues(object) {
-  var res = {};
+  var res = {}
   for (var key in object) {
-    var val = object[key];
+    var val = object[key]
     if (val !== undefined) {
-      res[key] = val;
+      res[key] = val
     }
   }
-  return res;
+  return res
 }
 
 module.exports = {
   applyDefaults: applyDefaults,
   removeNullAndUndefinedValues: removeNullAndUndefinedValues,
-  removeUndefinedValues: removeUndefinedValues
-};
+  removeUndefinedValues: removeUndefinedValues,
+}
 
-},{}],59:[function(require,module,exports){
-'use strict';
+},{}],56:[function(require,module,exports){
+'use strict'
 
-var json = require('./_json');
+var json = require('./_json')
 
 /**
  * Functions to assist with debug logging.
@@ -11998,9 +11440,9 @@ var json = require('./_json');
  * client.ping() // Logs the request and response.
  */
 function logger(loggerFunction) {
-  return function(requestResult) {
-    return loggerFunction(showRequestResult(requestResult));
-  };
+  return function(requestResult, client) {
+    return loggerFunction(showRequestResult(requestResult), client)
+  }
 }
 
 /**
@@ -12017,57 +11459,59 @@ function showRequestResult(requestResult) {
     responseHeaders = requestResult.responseHeaders,
     responseContent = requestResult.responseContent,
     statusCode = requestResult.statusCode,
-    timeTaken = requestResult.timeTaken;
+    timeTaken = requestResult.timeTaken
 
-  var out = '';
+  var out = ''
 
   function log(str) {
-    out = out + str;
+    out = out + str
   }
 
-  log('Fauna ' + method + ' /' + path + _queryString(query) + '\n');
+  log('Fauna ' + method + ' /' + path + _queryString(query) + '\n')
   if (requestContent != null) {
-    log('  Request JSON: ' + _showJSON(requestContent) + '\n');
+    log('  Request JSON: ' + _showJSON(requestContent) + '\n')
   }
-  log('  Response headers: ' + _showJSON(responseHeaders) + '\n');
-  log('  Response JSON: ' + _showJSON(responseContent) + '\n');
-  log('  Response (' + statusCode + '): Network latency ' + timeTaken + 'ms\n');
+  log('  Response headers: ' + _showJSON(responseHeaders) + '\n')
+  log('  Response JSON: ' + _showJSON(responseContent) + '\n')
+  log('  Response (' + statusCode + '): Network latency ' + timeTaken + 'ms\n')
 
-  return out;
+  return out
 }
 
-
 function _indent(str) {
-  var indentStr = '  ';
-  return str.split('\n').join('\n' + indentStr);
+  var indentStr = '  '
+  return str.split('\n').join('\n' + indentStr)
 }
 
 function _showJSON(object) {
-  return _indent(json.toJSON(object, true));
+  return _indent(json.toJSON(object, true))
 }
 
 function _queryString(query) {
   if (query == null) {
-    return '';
+    return ''
   }
 
-  var keys = Object.keys(query);
+  var keys = Object.keys(query)
   if (keys.length === 0) {
-    return '';
+    return ''
   }
 
-  var pairs = keys.map(function(key) { return key + '=' + query[key]; });
-  return '?' + pairs.join('&');
+  var pairs = keys.map(function(key) {
+    return key + '=' + query[key]
+  })
+  return '?' + pairs.join('&')
 }
 
 module.exports = {
   logger: logger,
-  showRequestResult: showRequestResult
-};
-},{"./_json":57}],60:[function(require,module,exports){
-'use strict';
+  showRequestResult: showRequestResult,
+}
 
-var util = require('util');
+},{"./_json":54}],57:[function(require,module,exports){
+'use strict'
+
+var util = require('util')
 
 /**
  * FaunaDB error types. Request errors can originate from
@@ -12086,23 +11530,22 @@ var util = require('util');
  * @constructor
  */
 function FaunaError(name, message) {
-  Error.call(this);
+  Error.call(this)
 
   /**
    * Name of this exception.
    * @type {string}
    */
-  this.name = name;
+  this.name = name
 
   /**
    * Message for this exception.
    * @type {string}
    */
-  this.message = message;
+  this.message = message
 }
 
-util.inherits(FaunaError, Error);
-
+util.inherits(FaunaError, Error)
 
 /**
  * Exception thrown by this client library when an invalid
@@ -12112,10 +11555,10 @@ util.inherits(FaunaError, Error);
  * @constructor
  */
 function InvalidValue(message) {
-  FaunaError.call(this, 'InvalidValue', message);
+  FaunaError.call(this, 'InvalidValue', message)
 }
 
-util.inherits(InvalidValue, FaunaError);
+util.inherits(InvalidValue, FaunaError)
 
 /**
  * Exception thrown by this client library when an invalid
@@ -12125,35 +11568,43 @@ util.inherits(InvalidValue, FaunaError);
  * @constructor
  */
 function InvalidArity(min, max, actual) {
-  FaunaError.call(this, 'InvalidArity', 'Function requires ' + messageForArity(min, max) + ' arguments but ' + actual + ' were given.');
+  FaunaError.call(
+    this,
+    'InvalidArity',
+    'Function requires ' +
+      messageForArity(min, max) +
+      ' arguments but ' +
+      actual +
+      ' were given.'
+  )
 
   /**
    * Minimum number of arguments.
    * @type {number}
    */
-  this.min = min;
+  this.min = min
 
   /**
    * Maximum number of arguments.
    * @type {number}
    */
-  this.max = max;
+  this.max = max
 
   /**
    * Actual number of arguments called with.
    * @type {number}
    */
-  this.actual = actual;
+  this.actual = actual
 
   function messageForArity(min, max) {
-    if (max === null) return 'at least ' + min;
-    if (min === null) return 'up to ' + max;
-    if (min === max) return  min;
-    return 'from ' + min + ' to ' + max;
+    if (max === null) return 'at least ' + min
+    if (min === null) return 'up to ' + max
+    if (min === max) return min
+    return 'from ' + min + ' to ' + max
   }
 }
 
-util.inherits(InvalidArity, FaunaError);
+util.inherits(InvalidArity, FaunaError)
 
 /**
  * Base exception type for errors returned by the FaunaDB server.
@@ -12164,10 +11615,10 @@ util.inherits(InvalidArity, FaunaError);
  * @constructor
  */
 function FaunaHTTPError(name, requestResult) {
-  var response = requestResult.responseContent;
-  var errors = response.errors;
-  var message = errors.length === 0 ? '(empty "errors")' : errors[0].code;
-  FaunaError.call(this, name, message);
+  var response = requestResult.responseContent
+  var errors = response.errors
+  var message = errors.length === 0 ? '(empty "errors")' : errors[0].code
+  FaunaError.call(this, name, message)
 
   /**
    * A wrapped {@link RequestResult} object, containing the request and response
@@ -12175,10 +11626,10 @@ function FaunaHTTPError(name, requestResult) {
    *
    * @type {RequestResult}
    */
-  this.requestResult = requestResult;
+  this.requestResult = requestResult
 }
 
-util.inherits(FaunaHTTPError, FaunaError);
+util.inherits(FaunaHTTPError, FaunaError)
 
 /**
  * Convenience method to return the errors from the response object.
@@ -12186,8 +11637,8 @@ util.inherits(FaunaHTTPError, FaunaError);
  * @returns {Object}
  */
 FaunaHTTPError.prototype.errors = function() {
-  return this.requestResult.responseContent.errors;
-};
+  return this.requestResult.responseContent.errors
+}
 
 /**
  * Takes a {@link RequestResult} and throws an appropriate exception if
@@ -12195,29 +11646,29 @@ FaunaHTTPError.prototype.errors = function() {
  *
  * @param requestResult {RequestResult}
  */
-FaunaHTTPError.raiseForStatusCode = function (requestResult) {
-  var code = requestResult.statusCode;
+FaunaHTTPError.raiseForStatusCode = function(requestResult) {
+  var code = requestResult.statusCode
   if (code < 200 || code >= 300) {
     switch (code) {
       case 400:
-        throw new BadRequest(requestResult);
+        throw new BadRequest(requestResult)
       case 401:
-        throw new Unauthorized(requestResult);
+        throw new Unauthorized(requestResult)
       case 403:
-        throw new PermissionDenied(requestResult);
+        throw new PermissionDenied(requestResult)
       case 404:
-        throw new NotFound(requestResult);
+        throw new NotFound(requestResult)
       case 405:
-        throw new MethodNotAllowed(requestResult);
+        throw new MethodNotAllowed(requestResult)
       case 500:
-        throw new InternalError(requestResult);
+        throw new InternalError(requestResult)
       case 503:
-        throw new UnavailableError(requestResult);
+        throw new UnavailableError(requestResult)
       default:
-        throw new FaunaHTTPError('UnknownError', requestResult);
+        throw new FaunaHTTPError('UnknownError', requestResult)
     }
   }
-};
+}
 
 /**
  * A HTTP 400 error.
@@ -12227,10 +11678,10 @@ FaunaHTTPError.raiseForStatusCode = function (requestResult) {
  * @constructor
  */
 function BadRequest(requestResult) {
-  FaunaHTTPError.call(this, 'BadRequest', requestResult);
+  FaunaHTTPError.call(this, 'BadRequest', requestResult)
 }
 
-util.inherits(BadRequest, FaunaHTTPError);
+util.inherits(BadRequest, FaunaHTTPError)
 
 /**
  * A HTTP 401 error.
@@ -12239,10 +11690,10 @@ util.inherits(BadRequest, FaunaHTTPError);
  * @constructor
  */
 function Unauthorized(requestResult) {
-  FaunaHTTPError.call(this, 'Unauthorized', requestResult);
+  FaunaHTTPError.call(this, 'Unauthorized', requestResult)
 }
 
-util.inherits(Unauthorized, FaunaHTTPError);
+util.inherits(Unauthorized, FaunaHTTPError)
 
 /**
  * A HTTP 403 error.
@@ -12251,10 +11702,10 @@ util.inherits(Unauthorized, FaunaHTTPError);
  * @constructor
  */
 function PermissionDenied(requestResult) {
-  FaunaHTTPError.call(this, 'PermissionDenied', requestResult);
+  FaunaHTTPError.call(this, 'PermissionDenied', requestResult)
 }
 
-util.inherits(PermissionDenied, FaunaHTTPError);
+util.inherits(PermissionDenied, FaunaHTTPError)
 
 /**
  * A HTTP 404 error.
@@ -12263,10 +11714,10 @@ util.inherits(PermissionDenied, FaunaHTTPError);
  * @constructor
  */
 function NotFound(requestResult) {
-  FaunaHTTPError.call(this, 'NotFound', requestResult);
+  FaunaHTTPError.call(this, 'NotFound', requestResult)
 }
 
-util.inherits(NotFound, FaunaHTTPError);
+util.inherits(NotFound, FaunaHTTPError)
 
 /**
  * A HTTP 405 error.
@@ -12275,10 +11726,10 @@ util.inherits(NotFound, FaunaHTTPError);
  * @constructor
  */
 function MethodNotAllowed(requestResult) {
-  FaunaHTTPError.call(this, 'MethodNotAllowed', requestResult);
+  FaunaHTTPError.call(this, 'MethodNotAllowed', requestResult)
 }
 
-util.inherits(MethodNotAllowed, FaunaHTTPError);
+util.inherits(MethodNotAllowed, FaunaHTTPError)
 
 /**
  * A HTTP 500 error.
@@ -12287,10 +11738,10 @@ util.inherits(MethodNotAllowed, FaunaHTTPError);
  * @constructor
  */
 function InternalError(requestResult) {
-  FaunaHTTPError.call(this, 'InternalError', requestResult);
+  FaunaHTTPError.call(this, 'InternalError', requestResult)
 }
 
-util.inherits(InternalError, FaunaHTTPError);
+util.inherits(InternalError, FaunaHTTPError)
 
 /**
  * A HTTP 503 error.
@@ -12299,10 +11750,10 @@ util.inherits(InternalError, FaunaHTTPError);
  * @constructor
  */
 function UnavailableError(requestResult) {
-  FaunaHTTPError.call(this, 'UnavailableError', requestResult);
+  FaunaHTTPError.call(this, 'UnavailableError', requestResult)
 }
 
-util.inherits(UnavailableError, FaunaHTTPError);
+util.inherits(UnavailableError, FaunaHTTPError)
 
 module.exports = {
   FaunaHTTPError: FaunaHTTPError,
@@ -12314,18 +11765,18 @@ module.exports = {
   NotFound: NotFound,
   MethodNotAllowed: MethodNotAllowed,
   InternalError: InternalError,
-  UnavailableError: UnavailableError
-};
+  UnavailableError: UnavailableError,
+}
 
-},{"util":51}],61:[function(require,module,exports){
-'use strict';
+},{"util":48}],58:[function(require,module,exports){
+'use strict'
 
-var annotate = require('fn-annotate');
-var deprecate = require('util-deprecate');
-var Expr = require('./Expr');
-var errors = require('./errors');
-var values = require('./values');
-var objectAssign = require('object-assign');
+var annotate = require('fn-annotate')
+var deprecate = require('util-deprecate')
+var Expr = require('./Expr')
+var errors = require('./errors')
+var values = require('./values')
+var objectAssign = require('object-assign')
 
 /**
  * This module contains functions used to construct FaunaDB Queries.
@@ -12359,10 +11810,12 @@ var objectAssign = require('object-assign');
  * @return {Expr}
  */
 function Ref() {
-  arity.between(1, 2, arguments);
+  arity.between(1, 2, arguments)
   switch (arguments.length) {
-    case 1: return new Expr({ '@ref': wrap(arguments[0]) });
-    case 2: return new Expr({ ref: wrap(arguments[0]), id: wrap(arguments[1]) });
+    case 1:
+      return new Expr({ '@ref': wrap(arguments[0]) })
+    case 2:
+      return new Expr({ ref: wrap(arguments[0]), id: wrap(arguments[1]) })
   }
 }
 
@@ -12372,8 +11825,8 @@ function Ref() {
  * @return {Expr}
  */
 function Bytes(bytes) {
-  arity.exact(1, arguments);
-  return new values.Bytes(bytes);
+  arity.exact(1, arguments)
+  return new values.Bytes(bytes)
 }
 
 // Basic forms
@@ -12386,8 +11839,8 @@ function Bytes(bytes) {
  * @return {Expr}
  * */
 function Abort(msg) {
-  arity.exact(1, arguments);
-  return new Expr({ abort: wrap(msg) });
+  arity.exact(1, arguments)
+  return new Expr({ abort: wrap(msg) })
 }
 
 /**
@@ -12400,8 +11853,8 @@ function Abort(msg) {
  * @return {Expr}
  * */
 function At(timestamp, expr) {
-  arity.exact(2, arguments);
-  return new Expr({ at: wrap(timestamp), expr: wrap(expr) });
+  arity.exact(2, arguments)
+  return new Expr({ at: wrap(timestamp), expr: wrap(expr) })
 }
 
 /**
@@ -12414,40 +11867,43 @@ function At(timestamp, expr) {
  * @return {Expr}
  * */
 function Let(vars, expr) {
-  arity.exact(2, arguments);
-  var bindings = [];
+  arity.exact(2, arguments)
+  var bindings = []
 
   if (Array.isArray(vars)) {
-    bindings = vars.map(function (item) {
-      return wrapValues(item);
-    });
+    bindings = vars.map(function(item) {
+      return wrapValues(item)
+    })
   } else {
-    bindings = Object.keys(vars).map(function (k) {
-      var b = {};
-      b[k] = wrap(vars[k]);
-      return b;
-    });
+    bindings = Object.keys(vars).map(function(k) {
+      var b = {}
+      b[k] = wrap(vars[k])
+      return b
+    })
   }
 
   if (typeof expr === 'function') {
     if (Array.isArray(vars)) {
-      var expr_vars = [];
+      var expr_vars = []
 
-      vars.forEach(function (item) {
+      vars.forEach(function(item) {
         Object.keys(item).forEach(function(name) {
-          expr_vars.push(Var(name));
-        });
-      });
+          expr_vars.push(Var(name))
+        })
+      })
 
-      expr = expr.apply(null, expr_vars);
+      expr = expr.apply(null, expr_vars)
     } else {
-      expr = expr.apply(null, Object.keys(vars).map(function(name) {
-        return Var(name);
-      }));
+      expr = expr.apply(
+        null,
+        Object.keys(vars).map(function(name) {
+          return Var(name)
+        })
+      )
     }
   }
 
-  return new Expr({ let: bindings, in: wrap(expr) });
+  return new Expr({ let: bindings, in: wrap(expr) })
 }
 
 /**
@@ -12458,8 +11914,8 @@ function Let(vars, expr) {
  * @return {Expr}
  * */
 function Var(varName) {
-  arity.exact(1, arguments);
-  return new Expr({ var: wrap(varName) });
+  arity.exact(1, arguments)
+  return new Expr({ var: wrap(varName) })
 }
 
 /**
@@ -12474,8 +11930,8 @@ function Var(varName) {
  * @return {Expr}
  * */
 function If(condition, then, _else) {
-  arity.exact(3, arguments);
-  return new Expr({ if: wrap(condition), then: wrap(then), else: wrap(_else) });
+  arity.exact(3, arguments)
+  return new Expr({ if: wrap(condition), then: wrap(then), else: wrap(_else) })
 }
 
 /**
@@ -12486,9 +11942,9 @@ function If(condition, then, _else) {
  * @return {Expr}
  * */
 function Do() {
-  arity.min(1, arguments);
-  var args = argsToArray(arguments);
-  return new Expr({ do: wrap(args) });
+  arity.min(1, arguments)
+  var args = argsToArray(arguments)
+  return new Expr({ do: wrap(args) })
 }
 
 /** See the [docs](https://app.fauna.com/documentation/reference/queryapi#basic-forms).
@@ -12498,9 +11954,21 @@ function Do() {
  * @return {Expr}
  * */
 var objectFunction = function(fields) {
-  arity.exact(1, arguments);
-  return new Expr({ object: wrapValues(fields) });
-};
+  arity.exact(1, arguments)
+  return new Expr({ object: wrapValues(fields) })
+}
+/**
+ * See the [docs](https://app.fauna.com/documentation/reference/queryapi#basic-forms).
+ *
+ * Directly produces a FaunaDB Lambda expression as described in the FaunaDB reference
+ * documentation.
+ *
+ * @param {module:query~ExprArg} var
+ *   The names of the variables to be bound in this lambda expression.
+ * @param {module:query~ExprArg} expr
+ *   The lambda expression.
+ * @return {Expr}
+ */
 
 /**
  * See the [docs](https://app.fauna.com/documentation/reference/queryapi#basic-forms).
@@ -12519,35 +11987,25 @@ var objectFunction = function(fields) {
  *   Takes the provided function and produces the appropriate FaunaDB query expression.
  * @return {Expr}
  *
- *//**
- * See the [docs](https://app.fauna.com/documentation/reference/queryapi#basic-forms).
- *
- * Directly produces a FaunaDB Lambda expression as described in the FaunaDB reference
- * documentation.
- *
- * @param {module:query~ExprArg} var
- *   The names of the variables to be bound in this lambda expression.
- * @param {module:query~ExprArg} expr
- *   The lambda expression.
- * @return {Expr}
- */
-function Lambda() {
-  arity.between(1, 2, arguments);
-  switch(arguments.length) {
+ */ function Lambda() {
+  arity.between(1, 2, arguments)
+  switch (arguments.length) {
     case 1:
-      var value = arguments[0];
+      var value = arguments[0]
       if (typeof value === 'function') {
-        return _lambdaFunc(value);
+        return _lambdaFunc(value)
       } else if (value instanceof Expr) {
-        return value;
+        return value
       } else {
-        throw new errors.InvalidValue('Lambda function takes either a Function or an Expr.');
+        throw new errors.InvalidValue(
+          'Lambda function takes either a Function or an Expr.'
+        )
       }
     case 2:
-      var var_name = arguments[0];
-      var expr = arguments[1];
+      var var_name = arguments[0]
+      var expr = arguments[1]
 
-      return _lambdaExpr(var_name, expr);
+      return _lambdaExpr(var_name, expr)
   }
 }
 
@@ -12555,14 +12013,24 @@ function Lambda() {
  * @private
  */
 function _lambdaFunc(func) {
-  var vars = annotate(func);
+  var vars = annotate(func)
   switch (vars.length) {
     case 0:
-      throw new errors.InvalidValue('Provided Function must take at least 1 argument.');
+      throw new errors.InvalidValue(
+        'Provided Function must take at least 1 argument.'
+      )
     case 1:
-      return _lambdaExpr(vars[0], func(Var(vars[0])));
+      return _lambdaExpr(vars[0], func(Var(vars[0])))
     default:
-      return _lambdaExpr(vars, func.apply(null, vars.map(function(name) { return Var(name); })));
+      return _lambdaExpr(
+        vars,
+        func.apply(
+          null,
+          vars.map(function(name) {
+            return Var(name)
+          })
+        )
+      )
   }
 }
 
@@ -12570,7 +12038,7 @@ function _lambdaFunc(func) {
  * @private
  */
 function _lambdaExpr(var_name, expr) {
-  return new Expr({ lambda: wrap(var_name), expr: wrap(expr) });
+  return new Expr({ lambda: wrap(var_name), expr: wrap(expr) })
 }
 
 /**
@@ -12589,10 +12057,10 @@ function _lambdaExpr(var_name, expr) {
  * @return {Expr}
  * */
 function Call(ref) {
-  arity.min(1, arguments);
-  var args = argsToArray(arguments);
-  args.shift();
-  return new Expr({ call: wrap(ref), arguments: wrap(varargs(args)) });
+  arity.min(1, arguments)
+  var args = argsToArray(arguments)
+  args.shift()
+  return new Expr({ call: wrap(ref), arguments: wrap(varargs(args)) })
 }
 
 /**
@@ -12610,8 +12078,8 @@ function Call(ref) {
  * @return {Expr}
  * */
 function Query(lambda) {
-  arity.exact(1, arguments);
-  return new Expr({ query: wrap(lambda) });
+  arity.exact(1, arguments)
+  return new Expr({ query: wrap(lambda) })
 }
 
 // Collection functions
@@ -12625,8 +12093,8 @@ function Query(lambda) {
  * @return {Expr}
  * */
 function Map(collection, lambda_expr) {
-  arity.exact(2, arguments);
-  return new Expr({ map: wrap(lambda_expr), collection: wrap(collection) });
+  arity.exact(2, arguments)
+  return new Expr({ map: wrap(lambda_expr), collection: wrap(collection) })
 }
 
 /**
@@ -12639,8 +12107,8 @@ function Map(collection, lambda_expr) {
  * @return {Expr}
  * */
 function Foreach(collection, lambda_expr) {
-  arity.exact(2, arguments);
-  return new Expr({ foreach: wrap(lambda_expr), collection: wrap(collection) });
+  arity.exact(2, arguments)
+  return new Expr({ foreach: wrap(lambda_expr), collection: wrap(collection) })
 }
 
 /**
@@ -12653,8 +12121,8 @@ function Foreach(collection, lambda_expr) {
  * @return {Expr}
  * */
 function Filter(collection, lambda_expr) {
-  arity.exact(2, arguments);
-  return new Expr({ filter: wrap(lambda_expr), collection: wrap(collection) });
+  arity.exact(2, arguments)
+  return new Expr({ filter: wrap(lambda_expr), collection: wrap(collection) })
 }
 
 /**
@@ -12667,8 +12135,8 @@ function Filter(collection, lambda_expr) {
  * @return {Expr}
  * */
 function Take(number, collection) {
-  arity.exact(2, arguments);
-  return new Expr({ take: wrap(number), collection: wrap(collection) });
+  arity.exact(2, arguments)
+  return new Expr({ take: wrap(number), collection: wrap(collection) })
 }
 
 /**
@@ -12681,8 +12149,8 @@ function Take(number, collection) {
  * @return {Expr}
  * */
 function Drop(number, collection) {
-  arity.exact(2, arguments);
-  return new Expr({ drop: wrap(number), collection: wrap(collection) });
+  arity.exact(2, arguments)
+  return new Expr({ drop: wrap(number), collection: wrap(collection) })
 }
 
 /**
@@ -12695,8 +12163,8 @@ function Drop(number, collection) {
  * @return {Expr}
  */
 function Prepend(elements, collection) {
-  arity.exact(2, arguments);
-  return new Expr({ prepend: wrap(elements), collection: wrap(collection) });
+  arity.exact(2, arguments)
+  return new Expr({ prepend: wrap(elements), collection: wrap(collection) })
 }
 
 /**
@@ -12709,8 +12177,8 @@ function Prepend(elements, collection) {
  * @return {Expr}
  */
 function Append(elements, collection) {
-  arity.exact(2, arguments);
-  return new Expr({ append: wrap(elements), collection: wrap(collection) });
+  arity.exact(2, arguments)
+  return new Expr({ append: wrap(elements), collection: wrap(collection) })
 }
 
 /**
@@ -12721,8 +12189,8 @@ function Append(elements, collection) {
  * @return {Expr}
  */
 function IsEmpty(collection) {
-  arity.exact(1, arguments);
-  return new Expr({ is_empty: wrap(collection) });
+  arity.exact(1, arguments)
+  return new Expr({ is_empty: wrap(collection) })
 }
 
 /**
@@ -12733,8 +12201,309 @@ function IsEmpty(collection) {
  * @return {Expr}
  */
 function IsNonEmpty(collection) {
-  arity.exact(1, arguments);
-  return new Expr({ is_nonempty: wrap(collection) });
+  arity.exact(1, arguments)
+  return new Expr({ is_nonempty: wrap(collection) })
+}
+
+// Type check functions
+
+/**
+ * Check if the expression is a number.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isnumber">IsNumber</a>
+ */
+function IsNumber(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_number: wrap(expr) })
+}
+
+/**
+ * Check if the expression is a double.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isdouble">IsDouble</a>
+ */
+function IsDouble(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_double: wrap(expr) })
+}
+
+/**
+ * Check if the expression is an integer.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isinteger">IsInteger</a>
+ */
+function IsInteger(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_integer: wrap(expr) })
+}
+
+/**
+ * Check if the expression is a boolean.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isboolean">IsBoolean</a>
+ */
+function IsBoolean(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_boolean: wrap(expr) })
+}
+
+/**
+ * Check if the expression is null.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isnull">IsNull</a>
+ */
+function IsNull(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_null: wrap(expr) })
+}
+
+/**
+ * Check if the expression is a byte array.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isbytes">IsBytes</a>
+ */
+function IsBytes(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_bytes: wrap(expr) })
+}
+
+/**
+ * Check if the expression is a timestamp.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/istimestamp">IsTimestamp</a>
+ */
+function IsTimestamp(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_timestamp: wrap(expr) })
+}
+
+/**
+ * Check if the expression is a date.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isdate">IsDate</a>
+ */
+function IsDate(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_date: wrap(expr) })
+}
+
+/**
+ * Check if the expression is a string.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isstring">IsString</a>
+ */
+function IsString(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_string: wrap(expr) })
+}
+
+/**
+ * Check if the expression is an array.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isarray">IsArray</a>
+ */
+function IsArray(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_array: wrap(expr) })
+}
+
+/**
+ * Check if the expression is an object.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isobject">IsObject</a>
+ */
+function IsObject(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_object: wrap(expr) })
+}
+
+/**
+ * Check if the expression is a reference.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isref">IsRef</a>
+ */
+function IsRef(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_ref: wrap(expr) })
+}
+
+/**
+ * Check if the expression is a set.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isset">IsSet</a>
+ */
+function IsSet(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_set: wrap(expr) })
+}
+
+/**
+ * Check if the expression is a document (either a reference or an instance).
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isdoc">IsDoc</a>
+ */
+function IsDoc(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_doc: wrap(expr) })
+}
+
+/**
+ * Check if the expression is a lambda.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/islambda">IsLambda</a>
+ */
+function IsLambda(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_lambda: wrap(expr) })
+}
+
+/**
+ * Check if the expression is a collection.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/iscollection">IsCollection</a>
+ */
+function IsCollection(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_collection: wrap(expr) })
+}
+
+/**
+ * Check if the expression is a database.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isdatabase">IsDatabase</a>
+ */
+function IsDatabase(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_database: wrap(expr) })
+}
+
+/**
+ * Check if the expression is an index.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isindex">IsIndex</a>
+ */
+function IsIndex(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_index: wrap(expr) })
+}
+
+/**
+ * Check if the expression is a function.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isfunction">IsFunction</a>
+ */
+function IsFunction(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_function: wrap(expr) })
+}
+
+/**
+ * Check if the expression is a key.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/iskey">IsKey</a>
+ */
+function IsKey(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_key: wrap(expr) })
+}
+
+/**
+ * Check if the expression is a token.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/istoken">IsToken</a>
+ */
+function IsToken(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_token: wrap(expr) })
+}
+
+/**
+ * Check if the expression is credentials.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/iscredentials">IsCredentials</a>
+ */
+function IsCredentials(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_credentials: wrap(expr) })
+}
+
+/**
+ * Check if the expression is a role.
+ *
+ * @param {module:query~ExprArg} expr
+ *   The expression to check
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/isrole">IsRole</a>
+ */
+function IsRole(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ is_role: wrap(expr) })
 }
 
 // Read functions
@@ -12749,10 +12518,10 @@ function IsNonEmpty(collection) {
  * @return {Expr}
  */
 function Get(ref, ts) {
-  arity.between(1, 2, arguments);
-  ts = defaults(ts, null);
+  arity.between(1, 2, arguments)
+  ts = defaults(ts, null)
 
-  return new Expr(params({ get: wrap(ref) }, { ts: wrap(ts) }));
+  return new Expr(params({ get: wrap(ref) }, { ts: wrap(ts) }))
 }
 
 /**
@@ -12763,8 +12532,8 @@ function Get(ref, ts) {
  * @return {Expr}
  */
 function KeyFromSecret(secret) {
-  arity.exact(1, arguments);
-  return new Expr({ key_from_secret: wrap(secret) });
+  arity.exact(1, arguments)
+  return new Expr({ key_from_secret: wrap(secret) })
 }
 
 /**
@@ -12779,8 +12548,12 @@ function KeyFromSecret(secret) {
  * @return {Expr}
  */
 function Reduce(lambda, initial, collection) {
-  arity.exact(3, arguments);
-  return new Expr({ reduce: wrap(lambda), initial: wrap(initial), collection: wrap(collection) });
+  arity.exact(3, arguments)
+  return new Expr({
+    reduce: wrap(lambda),
+    initial: wrap(initial),
+    collection: wrap(collection),
+  })
 }
 
 /**
@@ -12799,10 +12572,10 @@ function Reduce(lambda, initial, collection) {
  * @return {Expr}
  */
 function Paginate(set, opts) {
-  arity.between(1, 2, arguments);
-  opts = defaults(opts, {});
+  arity.between(1, 2, arguments)
+  opts = defaults(opts, {})
 
-  return new Expr(objectAssign({ paginate: wrap(set) }, wrapValues(opts)));
+  return new Expr(objectAssign({ paginate: wrap(set) }, wrapValues(opts)))
 }
 
 /**
@@ -12815,10 +12588,10 @@ function Paginate(set, opts) {
  * @return {Expr}
  */
 function Exists(ref, ts) {
-  arity.between(1, 2, arguments);
-  ts = defaults(ts, null);
+  arity.between(1, 2, arguments)
+  ts = defaults(ts, null)
 
-  return new Expr(params({ exists: wrap(ref) }, { ts: wrap(ts) }));
+  return new Expr(params({ exists: wrap(ref) }, { ts: wrap(ts) }))
 }
 
 // Write functions
@@ -12833,8 +12606,8 @@ function Exists(ref, ts) {
  * @return {Expr}
  */
 function Create(collection_ref, params) {
-  arity.between(1, 2, arguments);
-  return new Expr({ create: wrap(collection_ref), params: wrap(params) });
+  arity.between(1, 2, arguments)
+  return new Expr({ create: wrap(collection_ref), params: wrap(params) })
 }
 
 /**
@@ -12847,8 +12620,8 @@ function Create(collection_ref, params) {
  * @return {Expr}
  */
 function Update(ref, params) {
-  arity.exact(2, arguments);
-  return new Expr({ update: wrap(ref), params: wrap(params) });
+  arity.exact(2, arguments)
+  return new Expr({ update: wrap(ref), params: wrap(params) })
 }
 
 /**
@@ -12861,8 +12634,8 @@ function Update(ref, params) {
  * @return {Expr}
  */
 function Replace(ref, params) {
-  arity.exact(2, arguments);
-  return new Expr({ replace: wrap(ref), params: wrap(params) });
+  arity.exact(2, arguments)
+  return new Expr({ replace: wrap(ref), params: wrap(params) })
 }
 
 /**
@@ -12873,8 +12646,8 @@ function Replace(ref, params) {
  * @return {Expr}
  */
 function Delete(ref) {
-  arity.exact(1, arguments);
-  return new Expr({ delete: wrap(ref) });
+  arity.exact(1, arguments)
+  return new Expr({ delete: wrap(ref) })
 }
 
 /**
@@ -12891,8 +12664,13 @@ function Delete(ref) {
  * @return {Expr}
  */
 function Insert(ref, ts, action, params) {
-  arity.exact(4, arguments);
-  return new Expr({ insert: wrap(ref), ts: wrap(ts), action: wrap(action), params: wrap(params) });
+  arity.exact(4, arguments)
+  return new Expr({
+    insert: wrap(ref),
+    ts: wrap(ts),
+    action: wrap(action),
+    params: wrap(params),
+  })
 }
 
 /**
@@ -12907,8 +12685,8 @@ function Insert(ref, ts, action, params) {
  * @return {Expr}
  */
 function Remove(ref, ts, action) {
-  arity.exact(3, arguments);
-  return new Expr({ remove: wrap(ref), ts: wrap(ts), action: wrap(action) });
+  arity.exact(3, arguments)
+  return new Expr({ remove: wrap(ref), ts: wrap(ts), action: wrap(action) })
 }
 
 /**
@@ -12918,12 +12696,12 @@ function Remove(ref, ts, action) {
  *   An object of parameters used to create a class.
  *     - name (required): the name of the class to create
  * @return {Expr}
- * 
+ *
  * @deprecated use CreateCollection instead
  */
 function CreateClass(params) {
-  arity.exact(1, arguments);
-  return new Expr({ create_class: wrap(params) });
+  arity.exact(1, arguments)
+  return new Expr({ create_class: wrap(params) })
 }
 
 /**
@@ -12935,8 +12713,8 @@ function CreateClass(params) {
  * @return {Expr}
  */
 function CreateCollection(params) {
-  arity.exact(1, arguments);
-  return new Expr({ create_collection: wrap(params) });
+  arity.exact(1, arguments)
+  return new Expr({ create_collection: wrap(params) })
 }
 
 /**
@@ -12948,8 +12726,8 @@ function CreateCollection(params) {
  * @return {Expr}
  */
 function CreateDatabase(params) {
-  arity.exact(1, arguments);
-  return new Expr({ create_database: wrap(params) });
+  arity.exact(1, arguments)
+  return new Expr({ create_database: wrap(params) })
 }
 
 /**
@@ -12966,8 +12744,8 @@ function CreateDatabase(params) {
  * @return {Expr}
  */
 function CreateIndex(params) {
-  arity.exact(1, arguments);
-  return new Expr({ create_index: wrap(params) });
+  arity.exact(1, arguments)
+  return new Expr({ create_index: wrap(params) })
 }
 
 /**
@@ -12980,8 +12758,8 @@ function CreateIndex(params) {
  * @return {Expr}
  */
 function CreateKey(params) {
-  arity.exact(1, arguments);
-  return new Expr({ create_key: wrap(params) });
+  arity.exact(1, arguments)
+  return new Expr({ create_key: wrap(params) })
 }
 
 /**
@@ -12994,8 +12772,8 @@ function CreateKey(params) {
  * @return {Expr}
  */
 function CreateFunction(params) {
-  arity.exact(1, arguments);
-  return new Expr({ create_function: wrap(params) });
+  arity.exact(1, arguments)
+  return new Expr({ create_function: wrap(params) })
 }
 
 /**
@@ -13009,8 +12787,8 @@ function CreateFunction(params) {
  * @return {Expr}
  */
 function CreateRole(params) {
-  arity.exact(1, arguments);
-  return new Expr({ create_role: wrap(params) });
+  arity.exact(1, arguments)
+  return new Expr({ create_role: wrap(params) })
 }
 
 // Sets
@@ -13023,8 +12801,8 @@ function CreateRole(params) {
  * @return {Expr}
  */
 function Singleton(ref) {
-  arity.exact(1, arguments);
-  return new Expr({ singleton: wrap(ref) });
+  arity.exact(1, arguments)
+  return new Expr({ singleton: wrap(ref) })
 }
 
 /**
@@ -13035,8 +12813,8 @@ function Singleton(ref) {
  * @return {Expr}
  */
 function Events(ref_set) {
-  arity.exact(1, arguments);
-  return new Expr({ events: wrap(ref_set) });
+  arity.exact(1, arguments)
+  return new Expr({ events: wrap(ref_set) })
 }
 
 /**
@@ -13049,10 +12827,10 @@ function Events(ref_set) {
  * @return {Expr}
  */
 function Match(index) {
-  arity.min(1, arguments);
-  var args = argsToArray(arguments);
-  args.shift();
-  return new Expr({ match: wrap(index), terms: wrap(varargs(args)) });
+  arity.min(1, arguments)
+  var args = argsToArray(arguments)
+  args.shift()
+  return new Expr({ match: wrap(index), terms: wrap(varargs(args)) })
 }
 
 /**
@@ -13063,8 +12841,8 @@ function Match(index) {
  * @return {Expr}
  */
 function Union() {
-  arity.min(1, arguments);
-  return new Expr({ union: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ union: wrap(varargs(arguments)) })
 }
 
 /**
@@ -13076,8 +12854,10 @@ function Union() {
  * @return {Expr}
  * */
 function Merge(merge, _with, lambda) {
-  arity.between(2, 3, arguments);
-  return new Expr(params({ 'merge': wrap(merge), 'with': wrap(_with) }, {'lambda': wrap(lambda) }));
+  arity.between(2, 3, arguments)
+  return new Expr(
+    params({ merge: wrap(merge), with: wrap(_with) }, { lambda: wrap(lambda) })
+  )
 }
 
 /**
@@ -13088,8 +12868,8 @@ function Merge(merge, _with, lambda) {
  * @return {Expr}
  * */
 function Intersection() {
-  arity.min(1, arguments);
-  return new Expr({ intersection: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ intersection: wrap(varargs(arguments)) })
 }
 
 /**
@@ -13100,8 +12880,8 @@ function Intersection() {
  * @return {Expr}
  * */
 function Difference() {
-  arity.min(1, arguments);
-  return new Expr({ difference: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ difference: wrap(varargs(arguments)) })
 }
 
 /**
@@ -13112,8 +12892,8 @@ function Difference() {
  * @return {Expr}
  * */
 function Distinct(set) {
-  arity.exact(1, arguments);
-  return new Expr({ distinct: wrap(set) });
+  arity.exact(1, arguments)
+  return new Expr({ distinct: wrap(set) })
 }
 
 /**
@@ -13126,8 +12906,8 @@ function Distinct(set) {
  * @return {Expr}
  */
 function Join(source, target) {
-  arity.exact(2, arguments);
-  return new Expr({ join: wrap(source), with: wrap(target) });
+  arity.exact(2, arguments)
+  return new Expr({ join: wrap(source), with: wrap(target) })
 }
 
 /**
@@ -13142,8 +12922,8 @@ function Join(source, target) {
  * @return {Expr}
  */
 function Range(set, from, to) {
-  arity.exact(3, arguments);
-  return new Expr({ range: wrap(set), from: wrap(from), to: wrap(to) });
+  arity.exact(3, arguments)
+  return new Expr({ range: wrap(set), from: wrap(from), to: wrap(to) })
 }
 
 // Authentication
@@ -13159,8 +12939,8 @@ function Range(set, from, to) {
  * @return {Expr}
  * */
 function Login(ref, params) {
-  arity.exact(2, arguments);
-  return new Expr({ login: wrap(ref), params: wrap(params) });
+  arity.exact(2, arguments)
+  return new Expr({ login: wrap(ref), params: wrap(params) })
 }
 
 /**
@@ -13171,8 +12951,8 @@ function Login(ref, params) {
  * @return {Expr}
  */
 function Logout(delete_tokens) {
-  arity.exact(1, arguments);
-  return new Expr({ logout: wrap(delete_tokens) });
+  arity.exact(1, arguments)
+  return new Expr({ logout: wrap(delete_tokens) })
 }
 
 /**
@@ -13185,8 +12965,8 @@ function Logout(delete_tokens) {
  * @return {Expr}
  */
 function Identify(ref, password) {
-  arity.exact(2, arguments);
-  return new Expr({ identify: wrap(ref), password: wrap(password) });
+  arity.exact(2, arguments)
+  return new Expr({ identify: wrap(ref), password: wrap(password) })
 }
 
 /**
@@ -13195,8 +12975,8 @@ function Identify(ref, password) {
  * @return {Expr}
  */
 function Identity() {
-  arity.exact(0, arguments);
-  return new Expr({ identity: null });
+  arity.exact(0, arguments)
+  return new Expr({ identity: null })
 }
 
 /**
@@ -13205,8 +12985,8 @@ function Identity() {
  * @return {Expr}
  */
 function HasIdentity() {
-  arity.exact(0, arguments);
-  return new Expr({ has_identity: null });
+  arity.exact(0, arguments)
+  return new Expr({ has_identity: null })
 }
 
 // String functions
@@ -13219,9 +12999,11 @@ function HasIdentity() {
  * @return {string} a single combined string
  */
 function Concat(strings, separator) {
-  arity.min(1, arguments);
-  separator = defaults(separator, null);
-  return new Expr(params({ concat: wrap(strings) }, { separator: wrap(separator) }));
+  arity.min(1, arguments)
+  separator = defaults(separator, null)
+  return new Expr(
+    params({ concat: wrap(strings) }, { separator: wrap(separator) })
+  )
 }
 
 /**
@@ -13232,72 +13014,74 @@ function Concat(strings, separator) {
  * @return {string} a normalized string
  */
 function Casefold(string, normalizer) {
-  arity.min(1, arguments);
-  return new Expr(params({ casefold: wrap(string) }, { normalizer: wrap(normalizer) }));
+  arity.min(1, arguments)
+  return new Expr(
+    params({ casefold: wrap(string) }, { normalizer: wrap(normalizer) })
+  )
 }
 
 /**
-  * Returns true if the string contains the given substring, or false if otherwise
-  *
-  * @param {string} value  - the string to evaluate
-  * @param {string} search - the substring to search for
-  * @return {boolean}      - was the search result found
-  * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/containsstr">FaunaDB ContainsStr Function</a>
-  */
+ * Returns true if the string contains the given substring, or false if otherwise
+ *
+ * @param {string} value  - the string to evaluate
+ * @param {string} search - the substring to search for
+ * @return {boolean}      - was the search result found
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/containsstr">FaunaDB ContainsStr Function</a>
+ */
 function ContainsStr(value, search) {
-  arity.exact(2, arguments);
-  return new Expr({ containsstr: wrap(value), search: wrap(search) });
+  arity.exact(2, arguments)
+  return new Expr({ containsstr: wrap(value), search: wrap(search) })
 }
 
 /**
-  * Returns true if the string contains the given pattern, or false if otherwise
-  *
-  * @param {string} value   - the string to evaluate
-  * @param {string} pattern - the pattern to search for
-  * @return {boolean}       - was the regex search result found
-  * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/containsstrregex">FaunaDB ContainsStrRegex Function</a>
-  */
+ * Returns true if the string contains the given pattern, or false if otherwise
+ *
+ * @param {string} value   - the string to evaluate
+ * @param {string} pattern - the pattern to search for
+ * @return {boolean}       - was the regex search result found
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/containsstrregex">FaunaDB ContainsStrRegex Function</a>
+ */
 function ContainsStrRegex(value, pattern) {
-  arity.exact(2, arguments);
-  return new Expr({ containsstrregex: wrap(value), pattern: wrap(pattern) });
+  arity.exact(2, arguments)
+  return new Expr({ containsstrregex: wrap(value), pattern: wrap(pattern) })
 }
 
 /**
-  * Returns true if the string starts with the given prefix value, or false if otherwise
-  *
-  * @param {string} value   - the string to evaluate
-  * @param {string} search  - the prefix to search for
-  * @return {boolean}       - does `value` start with `search`
-  * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/startswith">FaunaDB StartsWith Function</a>
-  */
+ * Returns true if the string starts with the given prefix value, or false if otherwise
+ *
+ * @param {string} value   - the string to evaluate
+ * @param {string} search  - the prefix to search for
+ * @return {boolean}       - does `value` start with `search`
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/startswith">FaunaDB StartsWith Function</a>
+ */
 function StartsWith(value, search) {
-  arity.exact(2, arguments);
-  return new Expr({ startswith: wrap(value), search: wrap(search) });
+  arity.exact(2, arguments)
+  return new Expr({ startswith: wrap(value), search: wrap(search) })
 }
 
 /**
-  * Returns true if the string ends with the given suffix value, or false if otherwise
-  *
-  * @param {string} value   - the string to evaluate
-  * @param {string} search  - the suffix to search for
-  * @return {boolean}       - does `value` end with `search`
-  * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/endswith">FaunaDB EndsWith Function</a>
-  */
+ * Returns true if the string ends with the given suffix value, or false if otherwise
+ *
+ * @param {string} value   - the string to evaluate
+ * @param {string} search  - the suffix to search for
+ * @return {boolean}       - does `value` end with `search`
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/endswith">FaunaDB EndsWith Function</a>
+ */
 function EndsWith(value, search) {
-  arity.exact(2, arguments);
-  return new Expr({ endswith: wrap(value), search: wrap(search) });
+  arity.exact(2, arguments)
+  return new Expr({ endswith: wrap(value), search: wrap(search) })
 }
 
 /**
-  * It takes a string and returns a regex which matches the input string verbatim.
-  *
-  * @param value      - the string to analyze
-  * @return {string}  - a regex which matches the input string verbatim
-  * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/regexescape">FaunaDB RegexEscape Function</a>
-*/
+ * It takes a string and returns a regex which matches the input string verbatim.
+ *
+ * @param value      - the string to analyze
+ * @return {string}  - a regex which matches the input string verbatim
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/regexescape">FaunaDB RegexEscape Function</a>
+ */
 function RegexEscape(value) {
-  arity.exact(1, arguments);
-  return new Expr({ regexescape: wrap(value) });
+  arity.exact(1, arguments)
+  return new Expr({ regexescape: wrap(value) })
 }
 
 /**
@@ -13309,9 +13093,11 @@ function RegexEscape(value) {
  * @return {int} location of the found string or -1 if not found
  */
 function FindStr(value, find, start) {
-  arity.between(2, 3, arguments);
-  start = defaults(start, null);
-  return new Expr(params({ findstr: wrap(value), find: wrap(find) }, { start: wrap(start) }));
+  arity.between(2, 3, arguments)
+  start = defaults(start, null)
+  return new Expr(
+    params({ findstr: wrap(value), find: wrap(find) }, { start: wrap(start) })
+  )
 }
 
 /**
@@ -13324,9 +13110,14 @@ function FindStr(value, find, start) {
  * @return {Array} an array of object describing where the search pattern was located
  */
 function FindStrRegex(value, pattern, start, numResults) {
-  arity.between(2, 4, arguments);
-  start = defaults(start, null);
-  return new Expr(params({ findstrregex: wrap(value), pattern: wrap(pattern) }, { start: wrap(start), num_results: wrap(numResults) }));
+  arity.between(2, 4, arguments)
+  start = defaults(start, null)
+  return new Expr(
+    params(
+      { findstrregex: wrap(value), pattern: wrap(pattern) },
+      { start: wrap(start), num_results: wrap(numResults) }
+    )
+  )
 }
 
 /**
@@ -13336,8 +13127,8 @@ function FindStrRegex(value, pattern, start, numResults) {
  * @return {int} the length of the string in codepoints
  */
 function Length(value) {
-  arity.exact(1, arguments);
-  return new Expr({ length: wrap(value) });
+  arity.exact(1, arguments)
+  return new Expr({ length: wrap(value) })
 }
 
 /**
@@ -13347,8 +13138,8 @@ function Length(value) {
  * @return {string} the string converted to lowercase
  */
 function LowerCase(value) {
-  arity.exact(1, arguments);
-  return new Expr({ lowercase: wrap(value) });
+  arity.exact(1, arguments)
+  return new Expr({ lowercase: wrap(value) })
 }
 
 /**
@@ -13358,8 +13149,8 @@ function LowerCase(value) {
  * @return {string} the string with leading white space removed
  */
 function LTrim(value) {
-  arity.exact(1, arguments);
-  return new Expr({ ltrim: wrap(value) });
+  arity.exact(1, arguments)
+  return new Expr({ ltrim: wrap(value) })
 }
 
 /**
@@ -13374,11 +13165,13 @@ function LTrim(value) {
  * @return {Array|Value}
  */
 function NGram(terms, min, max) {
-  arity.between(1, 3, arguments);
+  arity.between(1, 3, arguments)
   min = defaults(min, null)
   max = defaults(max, null)
 
-  return new Expr(params({ ngram: wrap(terms) }, { min: wrap(min), max: wrap(max) }));
+  return new Expr(
+    params({ ngram: wrap(terms) }, { min: wrap(min), max: wrap(max) })
+  )
 }
 
 /**
@@ -13389,9 +13182,9 @@ function NGram(terms, min, max) {
  * @return {string} a string which was repeated
  */
 function Repeat(value, number) {
-  arity.between(1, 2, arguments);
-  number = defaults(number, null);
-  return new Expr(params({ repeat: wrap(value) }, { number: wrap(number) }));
+  arity.between(1, 2, arguments)
+  number = defaults(number, null)
+  return new Expr(params({ repeat: wrap(value) }, { number: wrap(number) }))
 }
 
 /**
@@ -13403,8 +13196,12 @@ function Repeat(value, number) {
  * @return {String} all the occurrences of find substituted with replace string
  */
 function ReplaceStr(value, find, replace) {
-  arity.exact(3, arguments);
-  return new Expr({ replacestr: wrap(value), find: wrap(find), replace: wrap(replace) });
+  arity.exact(3, arguments)
+  return new Expr({
+    replacestr: wrap(value),
+    find: wrap(find),
+    replace: wrap(replace),
+  })
 }
 
 /**
@@ -13417,9 +13214,18 @@ function ReplaceStr(value, find, replace) {
  * @return {string} all the occurrences of find pattern substituted with replace string
  */
 function ReplaceStrRegex(value, pattern, replace, first) {
-  arity.between(3, 4, arguments);
-  first = defaults(first, null);
-  return new Expr(params({ replacestrregex: wrap(value), pattern: wrap(pattern), replace: wrap(replace) }, { first: wrap(first) }));
+  arity.between(3, 4, arguments)
+  first = defaults(first, null)
+  return new Expr(
+    params(
+      {
+        replacestrregex: wrap(value),
+        pattern: wrap(pattern),
+        replace: wrap(replace),
+      },
+      { first: wrap(first) }
+    )
+  )
 }
 
 /**
@@ -13429,8 +13235,8 @@ function ReplaceStrRegex(value, pattern, replace, first) {
  * @return {string} the string with trailing whitespaces removed
  */
 function RTrim(value) {
-  arity.exact(1, arguments);
-  return new Expr({ rtrim: wrap(value) });
+  arity.exact(1, arguments)
+  return new Expr({ rtrim: wrap(value) })
 }
 
 /**
@@ -13440,8 +13246,8 @@ function RTrim(value) {
  * @return {string} a string with spaces
  */
 function Space(num) {
-  arity.exact(1, arguments);
-  return new Expr({ space: wrap(num) });
+  arity.exact(1, arguments)
+  return new Expr({ space: wrap(num) })
 }
 /**
  * See the [docs](https://app.fauna.com/documentation/reference/queryapi#string-functions).
@@ -13452,10 +13258,15 @@ function Space(num) {
  * @return {string}
  */
 function SubString(value, start, length) {
-  arity.between(1, 3, arguments);
-  start = defaults(start, null);
-  length = defaults(length, null);
-  return new Expr(params({ substring: wrap(value) }, { start: wrap(start), length: wrap(length) } ));
+  arity.between(1, 3, arguments)
+  start = defaults(start, null)
+  length = defaults(length, null)
+  return new Expr(
+    params(
+      { substring: wrap(value) },
+      { start: wrap(start), length: wrap(length) }
+    )
+  )
 }
 
 /**
@@ -13465,8 +13276,8 @@ function SubString(value, start, length) {
  * @return {string}  A string converted to titlecase
  */
 function TitleCase(value) {
-  arity.exact(1, arguments);
-  return new Expr({ titlecase: wrap(value) });
+  arity.exact(1, arguments)
+  return new Expr({ titlecase: wrap(value) })
 }
 
 /**
@@ -13476,8 +13287,8 @@ function TitleCase(value) {
  * @return {string} a string with leading and trailing whitespace removed
  */
 function Trim(value) {
-  arity.exact(1, arguments);
-  return new Expr({ trim: wrap(value) });
+  arity.exact(1, arguments)
+  return new Expr({ trim: wrap(value) })
 }
 
 /**
@@ -13487,8 +13298,8 @@ function Trim(value) {
  * @return {string} An uppercase string
  */
 function UpperCase(value) {
-  arity.exact(1, arguments);
-  return new Expr({ uppercase: wrap(value) });
+  arity.exact(1, arguments)
+  return new Expr({ uppercase: wrap(value) })
 }
 
 /**
@@ -13499,10 +13310,10 @@ function UpperCase(value) {
  * @return {string}         a string
  */
 function Format(string) {
-  arity.min(1, arguments);
-  var args = argsToArray(arguments);
-  args.shift();
-  return new Expr({ format: wrap(string), values: wrap(varargs(args)) });
+  arity.min(1, arguments)
+  var args = argsToArray(arguments)
+  args.shift()
+  return new Expr({ format: wrap(string), values: wrap(varargs(args)) })
 }
 
 // Time and date functions
@@ -13514,8 +13325,8 @@ function Format(string) {
  * @return {Expr}
  */
 function Time(string) {
-  arity.exact(1, arguments);
-  return new Expr({ time: wrap(string) });
+  arity.exact(1, arguments)
+  return new Expr({ time: wrap(string) })
 }
 
 /**
@@ -13528,8 +13339,69 @@ function Time(string) {
  * @return {Expr}
  */
 function Epoch(number, unit) {
-  arity.exact(2, arguments);
-  return new Expr({ epoch: wrap(number), unit: wrap(unit) });
+  arity.exact(2, arguments)
+  return new Expr({ epoch: wrap(number), unit: wrap(unit) })
+}
+
+/**
+ * See the [docs](https://docs.fauna.com/fauna/current/api/fql/functions/timeadd).
+ *
+ * Returns a new time or date with the offset in terms of the unit
+ * added.
+ *
+ * @param base the base time or data
+ * @param offset the number of units
+ * @param unit the unit type
+ * @return {Expr}
+ */
+function TimeAdd(base, offset, unit) {
+  arity.exact(3, arguments)
+  return new Expr({
+    time_add: wrap(base),
+    offset: wrap(offset),
+    unit: wrap(unit),
+  })
+}
+
+/**
+ * See the [docs](https://docs.fauna.com/fauna/current/api/fql/functions/timesubtract).
+ *
+ * Returns a new time or date with the offset in terms of the unit
+ * subtracted.
+ *
+ * @param base the base time or data
+ * @param offset the number of units
+ * @param unit the unit type
+ * @return {Expr}
+ */
+function TimeSubtract(base, offset, unit) {
+  arity.exact(3, arguments)
+  return new Expr({
+    time_subtract: wrap(base),
+    offset: wrap(offset),
+    unit: wrap(unit),
+  })
+}
+
+/**
+ * See the [docs](https://docs.fauna.com/fauna/current/api/fql/functions/timediff).
+ *
+ * Returns the number of intervals in terms of the unit between
+ * two times or dates. Both start and finish must be of the same
+ * type.
+ *
+ * @param start the starting time or date, inclusive
+ * @param finish the ending time or date, exclusive
+ * @param unit the unit type
+ * @return {Expr}
+ */
+function TimeDiff(start, finish, unit) {
+  arity.exact(3, arguments)
+  return new Expr({
+    time_diff: wrap(start),
+    other: wrap(finish),
+    unit: wrap(unit),
+  })
 }
 
 /**
@@ -13540,19 +13412,19 @@ function Epoch(number, unit) {
  * @return {Expr}
  */
 function Date(string) {
-  arity.exact(1, arguments);
-  return new Expr({ date: wrap(string) });
+  arity.exact(1, arguments)
+  return new Expr({ date: wrap(string) })
 }
 
 /**
-  * Returns the current snapshot time.
-  *
-  * @return {Expr}
-  * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/now">Now function</a>
-  */
+ * Returns the current snapshot time.
+ *
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/now">Now function</a>
+ */
 function Now() {
-  arity.exact(0, arguments);
-  return new Expr({ now: wrap(null) });
+  arity.exact(0, arguments)
+  return new Expr({ now: wrap(null) })
 }
 
 // Miscellaneous functions
@@ -13564,8 +13436,8 @@ function Now() {
  * @return {Expr}
  */
 function NextId() {
-  arity.exact(0, arguments);
-  return new Expr({ next_id: null });
+  arity.exact(0, arguments)
+  return new Expr({ next_id: null })
 }
 
 /**
@@ -13574,8 +13446,8 @@ function NextId() {
  * @return {Expr}
  */
 function NewId() {
-  arity.exact(0, arguments);
-  return new Expr({ new_id: null });
+  arity.exact(0, arguments)
+  return new Expr({ new_id: null })
 }
 
 /**
@@ -13588,10 +13460,12 @@ function NewId() {
  * @return {Expr}
  */
 function Database(name, scope) {
-  arity.between(1, 2, arguments);
-  switch(arguments.length) {
-    case 1: return new Expr({ database: wrap(name) });
-    case 2: return new Expr({ database: wrap(name), scope: wrap(scope) });
+  arity.between(1, 2, arguments)
+  switch (arguments.length) {
+    case 1:
+      return new Expr({ database: wrap(name) })
+    case 2:
+      return new Expr({ database: wrap(name), scope: wrap(scope) })
   }
 }
 
@@ -13605,10 +13479,12 @@ function Database(name, scope) {
  * @return {Expr}
  */
 function Index(name, scope) {
-  arity.between(1, 2, arguments);
-  switch(arguments.length) {
-    case 1: return new Expr({ index: wrap(name) });
-    case 2: return new Expr({ index: wrap(name), scope: wrap(scope) });
+  arity.between(1, 2, arguments)
+  switch (arguments.length) {
+    case 1:
+      return new Expr({ index: wrap(name) })
+    case 2:
+      return new Expr({ index: wrap(name), scope: wrap(scope) })
   }
 }
 
@@ -13620,14 +13496,16 @@ function Index(name, scope) {
  * @param {module:query~ExprArg} [scope]
  *   The Ref of the class's scope.
  * @return {Expr}
- * 
+ *
  * @deprecated Class is deprecated, use Collection instead
  */
 function Class(name, scope) {
-  arity.between(1, 2, arguments);
-  switch(arguments.length) {
-    case 1: return new Expr({ class: wrap(name) });
-    case 2: return new Expr({ class: wrap(name), scope: wrap(scope) });
+  arity.between(1, 2, arguments)
+  switch (arguments.length) {
+    case 1:
+      return new Expr({ class: wrap(name) })
+    case 2:
+      return new Expr({ class: wrap(name), scope: wrap(scope) })
   }
 }
 
@@ -13641,10 +13519,12 @@ function Class(name, scope) {
  * @return {Expr}
  */
 function Collection(name, scope) {
-  arity.between(1, 2, arguments);
+  arity.between(1, 2, arguments)
   switch (arguments.length) {
-    case 1: return new Expr({ collection: wrap(name) });
-    case 2: return new Expr({ collection: wrap(name), scope: wrap(scope) });
+    case 1:
+      return new Expr({ collection: wrap(name) })
+    case 2:
+      return new Expr({ collection: wrap(name), scope: wrap(scope) })
   }
 }
 
@@ -13658,10 +13538,12 @@ function Collection(name, scope) {
  * @return {Expr}
  */
 function FunctionFn(name, scope) {
-  arity.between(1, 2, arguments);
-  switch(arguments.length) {
-    case 1: return new Expr({ function: wrap(name) });
-    case 2: return new Expr({ function: wrap(name), scope: wrap(scope) });
+  arity.between(1, 2, arguments)
+  switch (arguments.length) {
+    case 1:
+      return new Expr({ function: wrap(name) })
+    case 2:
+      return new Expr({ function: wrap(name), scope: wrap(scope) })
   }
 }
 
@@ -13675,9 +13557,9 @@ function FunctionFn(name, scope) {
  * @return {Expr}
  */
 function Role(name, scope) {
-  arity.between(1, 2, arguments);
-  scope = defaults(scope, null);
-  return new Expr(params({ role: wrap(name) }, { scope: wrap(scope) }));
+  arity.between(1, 2, arguments)
+  scope = defaults(scope, null)
+  return new Expr(params({ role: wrap(name) }, { scope: wrap(scope) }))
 }
 
 /**
@@ -13690,9 +13572,9 @@ function Role(name, scope) {
  * @return {Expr}
  */
 function Classes(scope) {
-  arity.max(1, arguments);
-  scope = defaults(scope, null);
-  return new Expr({ classes: wrap(scope) });
+  arity.max(1, arguments)
+  scope = defaults(scope, null)
+  return new Expr({ classes: wrap(scope) })
 }
 
 /**
@@ -13705,9 +13587,9 @@ function Classes(scope) {
  * @return {Expr}
  */
 function Collections(scope) {
-  arity.max(1, arguments);
-  scope = defaults(scope, null);
-  return new Expr({ collections: wrap(scope) });
+  arity.max(1, arguments)
+  scope = defaults(scope, null)
+  return new Expr({ collections: wrap(scope) })
 }
 
 /**
@@ -13720,9 +13602,9 @@ function Collections(scope) {
  * @return {Expr}
  */
 function Databases(scope) {
-  arity.max(1, arguments);
-  scope = defaults(scope, null);
-  return new Expr({ databases: wrap(scope) });
+  arity.max(1, arguments)
+  scope = defaults(scope, null)
+  return new Expr({ databases: wrap(scope) })
 }
 
 /**
@@ -13735,9 +13617,9 @@ function Databases(scope) {
  * @return {Expr}
  */
 function Indexes(scope) {
-  arity.max(1, arguments);
-  scope = defaults(scope, null);
-  return new Expr({ indexes: wrap(scope) });
+  arity.max(1, arguments)
+  scope = defaults(scope, null)
+  return new Expr({ indexes: wrap(scope) })
 }
 
 /**
@@ -13750,9 +13632,9 @@ function Indexes(scope) {
  * @return {Expr}
  */
 function Functions(scope) {
-  arity.max(1, arguments);
-  scope = defaults(scope, null);
-  return new Expr({ functions: wrap(scope) });
+  arity.max(1, arguments)
+  scope = defaults(scope, null)
+  return new Expr({ functions: wrap(scope) })
 }
 
 /**
@@ -13765,9 +13647,9 @@ function Functions(scope) {
  * @return {Expr}
  */
 function Roles(scope) {
-  arity.max(1, arguments);
-  scope = defaults(scope, null);
-  return new Expr({ roles: wrap(scope) });
+  arity.max(1, arguments)
+  scope = defaults(scope, null)
+  return new Expr({ roles: wrap(scope) })
 }
 
 /**
@@ -13780,9 +13662,9 @@ function Roles(scope) {
  * @return {Expr}
  */
 function Keys(scope) {
-  arity.max(1, arguments);
-  scope = defaults(scope, null);
-  return new Expr({ keys: wrap(scope) });
+  arity.max(1, arguments)
+  scope = defaults(scope, null)
+  return new Expr({ keys: wrap(scope) })
 }
 
 /**
@@ -13795,9 +13677,9 @@ function Keys(scope) {
  * @return {Expr}
  */
 function Tokens(scope) {
-  arity.max(1, arguments);
-  scope = defaults(scope, null);
-  return new Expr({ tokens: wrap(scope) });
+  arity.max(1, arguments)
+  scope = defaults(scope, null)
+  return new Expr({ tokens: wrap(scope) })
 }
 
 /**
@@ -13810,9 +13692,9 @@ function Tokens(scope) {
  * @return {Expr}
  */
 function Credentials(scope) {
-  arity.max(1, arguments);
-  scope = defaults(scope, null);
-  return new Expr({ credentials: wrap(scope) });
+  arity.max(1, arguments)
+  scope = defaults(scope, null)
+  return new Expr({ credentials: wrap(scope) })
 }
 
 /**
@@ -13823,8 +13705,8 @@ function Credentials(scope) {
  * @return {Expr}
  */
 function Equals() {
-  arity.min(1, arguments);
-  return new Expr({ equals: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ equals: wrap(varargs(arguments)) })
 }
 
 /**
@@ -13837,8 +13719,8 @@ function Equals() {
  * @return {Expr}
  */
 function Contains(path, _in) {
-  arity.exact(2, arguments);
-  return new Expr({ contains: wrap(path), in: wrap(_in) });
+  arity.exact(2, arguments)
+  return new Expr({ contains: wrap(path), in: wrap(_in) })
 }
 
 /**
@@ -13853,12 +13735,12 @@ function Contains(path, _in) {
  * @return {Expr}
  */
 function Select(path, from, _default) {
-  arity.between(2, 3, arguments);
-  var exprObj = { select: wrap(path), from: wrap(from) };
+  arity.between(2, 3, arguments)
+  var exprObj = { select: wrap(path), from: wrap(from) }
   if (_default !== undefined) {
-    exprObj.default = wrap(_default);
+    exprObj.default = wrap(_default)
   }
-  return new Expr(exprObj);
+  return new Expr(exprObj)
 }
 
 /**
@@ -13869,10 +13751,12 @@ function Select(path, from, _default) {
  * @param {module:query~ExprArg} from
  *   The object to select from
  * @return {Expr}
+ *
+ * @deprecated avoid using
  */
 function SelectAll(path, from) {
-  arity.exact(2, arguments);
-  return new Expr({ select_all: wrap(path), from: wrap(from) });
+  arity.exact(2, arguments)
+  return new Expr({ select_all: wrap(path), from: wrap(from) })
 }
 
 /**
@@ -13883,8 +13767,8 @@ function SelectAll(path, from) {
  * @return {Expr}
  */
 function Abs(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ abs: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ abs: wrap(expr) })
 }
 
 /**
@@ -13895,8 +13779,8 @@ function Abs(expr) {
  * @return {Expr}
  */
 function Add() {
-  arity.min(1, arguments);
-  return new Expr({ add: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ add: wrap(varargs(arguments)) })
 }
 
 /**
@@ -13907,8 +13791,8 @@ function Add() {
  * @return {Expr}
  */
 function BitAnd() {
-  arity.min(1, arguments);
-  return new Expr({ bitand: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ bitand: wrap(varargs(arguments)) })
 }
 
 /**
@@ -13919,8 +13803,8 @@ function BitAnd() {
  * @return {Expr}
  */
 function BitNot(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ bitnot: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ bitnot: wrap(expr) })
 }
 
 /**
@@ -13931,8 +13815,8 @@ function BitNot(expr) {
  * @return {Expr}
  */
 function BitOr() {
-  arity.min(1, arguments);
-  return new Expr({ bitor: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ bitor: wrap(varargs(arguments)) })
 }
 
 /**
@@ -13943,8 +13827,8 @@ function BitOr() {
  * @return {Expr}
  */
 function BitXor() {
-  arity.min(1, arguments);
-  return new Expr({ bitxor: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ bitxor: wrap(varargs(arguments)) })
 }
 
 /**
@@ -13955,8 +13839,8 @@ function BitXor() {
  * @return {Expr}
  */
 function Ceil(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ ceil: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ ceil: wrap(expr) })
 }
 
 /**
@@ -13967,8 +13851,8 @@ function Ceil(expr) {
  * @return {Expr}
  */
 function Divide() {
-  arity.min(1, arguments);
-  return new Expr({ divide: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ divide: wrap(varargs(arguments)) })
 }
 
 /**
@@ -13979,8 +13863,8 @@ function Divide() {
  * @return {Expr}
  */
 function Floor(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ floor: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ floor: wrap(expr) })
 }
 
 /**
@@ -13991,8 +13875,8 @@ function Floor(expr) {
  * @return {Expr}
  */
 function Max() {
-  arity.min(1, arguments);
-  return new Expr({ max: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ max: wrap(varargs(arguments)) })
 }
 
 /**
@@ -14003,8 +13887,8 @@ function Max() {
  * @return {Expr}
  */
 function Min() {
-  arity.min(1, arguments);
-  return new Expr({ min: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ min: wrap(varargs(arguments)) })
 }
 
 /**
@@ -14015,8 +13899,8 @@ function Min() {
  * @return {Expr}
  */
 function Modulo() {
-  arity.min(1, arguments);
-  return new Expr({ modulo: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ modulo: wrap(varargs(arguments)) })
 }
 
 /**
@@ -14027,8 +13911,8 @@ function Modulo() {
  * @return {Expr}
  */
 function Multiply() {
-  arity.min(1, arguments);
-  return new Expr({ multiply: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ multiply: wrap(varargs(arguments)) })
 }
 
 /**
@@ -14041,9 +13925,11 @@ function Multiply() {
  * @return {Expr}
  */
 function Round(value, precision) {
-  arity.min(1, arguments);
-  precision = defaults(precision, null);
-  return new Expr(params({ round: wrap(value) }, { precision: wrap(precision) }));
+  arity.min(1, arguments)
+  precision = defaults(precision, null)
+  return new Expr(
+    params({ round: wrap(value) }, { precision: wrap(precision) })
+  )
 }
 
 /**
@@ -14054,8 +13940,8 @@ function Round(value, precision) {
  * @return {Expr}
  */
 function Subtract() {
-  arity.min(1, arguments);
-  return new Expr({ subtract: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ subtract: wrap(varargs(arguments)) })
 }
 
 /**
@@ -14066,8 +13952,8 @@ function Subtract() {
  * @return {Expr}
  */
 function Sign(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ sign: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ sign: wrap(expr) })
 }
 
 /**
@@ -14078,8 +13964,8 @@ function Sign(expr) {
  * @return {Expr}
  */
 function Sqrt(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ sqrt: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ sqrt: wrap(expr) })
 }
 
 /**
@@ -14092,48 +13978,76 @@ function Sqrt(expr) {
  * @return {Expr}
  */
 function Trunc(value, precision) {
-  arity.min(1, arguments);
-  precision = defaults(precision, null);
-  return new Expr(params({ trunc: wrap(value) }, { precision: wrap(precision) }));
+  arity.min(1, arguments)
+  precision = defaults(precision, null)
+  return new Expr(
+    params({ trunc: wrap(value) }, { precision: wrap(precision) })
+  )
 }
 
 /**
-  *
-  * Count the number of elements in the collection.
-  *
-  * @param {array}    - array of items
-  * @return {integer} - number of items in the collection
-  * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/count">Count function</a>
-  */
+ *
+ * Count the number of elements in the collection.
+ *
+ * @param {array}    - array of items
+ * @return {integer} - number of items in the collection
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/count">Count function</a>
+ */
 function Count(collection) {
-  arity.exact(1, arguments);
-  return new Expr({ count: wrap(collection) });
+  arity.exact(1, arguments)
+  return new Expr({ count: wrap(collection) })
 }
 
 /**
-  *
-  * Sum the elements in the collection.
-  *
-  * @param {array} - collection of numbers
-  * @return {integer} - total of all numbers in collection
-  * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/sum">Sum function</a>
-  */
+ *
+ * Sum the elements in the collection.
+ *
+ * @param {array} - collection of numbers
+ * @return {integer} - total of all numbers in collection
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/sum">Sum function</a>
+ */
 function Sum(collection) {
-  arity.exact(1, arguments);
-  return new Expr({ sum: wrap(collection) });
+  arity.exact(1, arguments)
+  return new Expr({ sum: wrap(collection) })
 }
 
 /**
-  *
-  * Returns the mean of all elements in the collection.
-  *
-  * @param {array} - collection the numbers
-  * @return {float} - the mean of all numbers in the collection
-  * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/mean">Mean function</a>
-  */
+ *
+ * Returns the mean of all elements in the collection.
+ *
+ * @param {array} - collection the numbers
+ * @return {float} - the mean of all numbers in the collection
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/mean">Mean function</a>
+ */
 function Mean(collection) {
-  arity.exact(1, arguments);
-  return new Expr({ mean: wrap(collection) });
+  arity.exact(1, arguments)
+  return new Expr({ mean: wrap(collection) })
+}
+
+/**
+ *
+ * Evaluates to true if any element of the collection is true.
+ *
+ * @param {array} - collection the collection
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/any">Any function</a>
+ */
+function Any(collection) {
+  arity.exact(1, arguments)
+  return new Expr({ any: wrap(collection) })
+}
+
+/**
+ *
+ * Evaluates to true if all elements of the collection are true.
+ *
+ * @param {array} - collection the collection
+ * @return {Expr}
+ * @see <a href="https://docs.fauna.com/fauna/current/api/fql/functions/all">All function</a>
+ */
+function All(collection) {
+  arity.exact(1, arguments)
+  return new Expr({ all: wrap(collection) })
 }
 
 /**
@@ -14144,8 +14058,8 @@ function Mean(collection) {
  * @return {Expr}
  */
 function Acos(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ acos: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ acos: wrap(expr) })
 }
 
 /**
@@ -14156,8 +14070,8 @@ function Acos(expr) {
  * @return {Expr}
  */
 function Asin(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ asin: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ asin: wrap(expr) })
 }
 
 /**
@@ -14168,8 +14082,8 @@ function Asin(expr) {
  * @return {Expr}
  */
 function Atan(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ atan: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ atan: wrap(expr) })
 }
 
 /**
@@ -14180,8 +14094,8 @@ function Atan(expr) {
  * @return {Expr}
  */
 function Cos(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ cos: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ cos: wrap(expr) })
 }
 
 /**
@@ -14192,8 +14106,8 @@ function Cos(expr) {
  * @return {Expr}
  */
 function Cosh(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ cosh: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ cosh: wrap(expr) })
 }
 
 /**
@@ -14204,8 +14118,8 @@ function Cosh(expr) {
  * @return {Expr}
  */
 function Degrees(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ degrees: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ degrees: wrap(expr) })
 }
 
 /**
@@ -14216,8 +14130,8 @@ function Degrees(expr) {
  * @return {Expr}
  */
 function Exp(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ exp: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ exp: wrap(expr) })
 }
 
 /**
@@ -14230,9 +14144,9 @@ function Exp(expr) {
  * @return {Expr}
  */
 function Hypot(value, side) {
-  arity.min(1, arguments);
-  side = defaults(side, null);
-  return new Expr(params({ hypot: wrap(value) }, { b: wrap(side) }));
+  arity.min(1, arguments)
+  side = defaults(side, null)
+  return new Expr(params({ hypot: wrap(value) }, { b: wrap(side) }))
 }
 
 /**
@@ -14243,8 +14157,8 @@ function Hypot(value, side) {
  * @return {Expr}
  */
 function Ln(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ ln: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ ln: wrap(expr) })
 }
 
 /**
@@ -14255,8 +14169,8 @@ function Ln(expr) {
  * @return {Expr}
  */
 function Log(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ log: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ log: wrap(expr) })
 }
 
 /**
@@ -14269,9 +14183,9 @@ function Log(expr) {
  * @return {Expr}
  */
 function Pow(value, exponent) {
-  arity.min(1, arguments);
-  exponent = defaults(exponent, null);
-  return new Expr(params({ pow: wrap(value) }, { exp: wrap(exponent) }));
+  arity.min(1, arguments)
+  exponent = defaults(exponent, null)
+  return new Expr(params({ pow: wrap(value) }, { exp: wrap(exponent) }))
 }
 
 /**
@@ -14282,8 +14196,8 @@ function Pow(value, exponent) {
  * @return {Expr}
  */
 function Radians(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ radians: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ radians: wrap(expr) })
 }
 
 /**
@@ -14294,8 +14208,8 @@ function Radians(expr) {
  * @return {Expr}
  */
 function Sin(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ sin: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ sin: wrap(expr) })
 }
 
 /**
@@ -14306,8 +14220,8 @@ function Sin(expr) {
  * @return {Expr}
  */
 function Sinh(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ sinh: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ sinh: wrap(expr) })
 }
 
 /**
@@ -14318,8 +14232,8 @@ function Sinh(expr) {
  * @return {Expr}
  */
 function Tan(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ tan: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ tan: wrap(expr) })
 }
 
 /**
@@ -14330,8 +14244,8 @@ function Tan(expr) {
  * @return {Expr}
  */
 function Tanh(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ tanh: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ tanh: wrap(expr) })
 }
 
 /**
@@ -14342,8 +14256,8 @@ function Tanh(expr) {
  * @return {Expr}
  */
 function LT() {
-  arity.min(1, arguments);
-  return new Expr({ lt: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ lt: wrap(varargs(arguments)) })
 }
 
 /**
@@ -14354,8 +14268,8 @@ function LT() {
  * @return {Expr}
  */
 function LTE() {
-  arity.min(1, arguments);
-  return new Expr({ lte: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ lte: wrap(varargs(arguments)) })
 }
 
 /**
@@ -14366,8 +14280,8 @@ function LTE() {
  * @return {Expr}
  */
 function GT() {
-  arity.min(1, arguments);
-  return new Expr({ gt: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ gt: wrap(varargs(arguments)) })
 }
 
 /**
@@ -14378,8 +14292,8 @@ function GT() {
  * @return {Expr}
  */
 function GTE() {
-  arity.min(1, arguments);
-  return new Expr({ gte: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ gte: wrap(varargs(arguments)) })
 }
 
 /**
@@ -14390,8 +14304,8 @@ function GTE() {
  * @return {Expr}
  */
 function And() {
-  arity.min(1, arguments);
-  return new Expr({ and: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ and: wrap(varargs(arguments)) })
 }
 
 /**
@@ -14402,8 +14316,8 @@ function And() {
  * @return {Expr}
  */
 function Or() {
-  arity.min(1, arguments);
-  return new Expr({ or: wrap(varargs(arguments)) });
+  arity.min(1, arguments)
+  return new Expr({ or: wrap(varargs(arguments)) })
 }
 
 /**
@@ -14414,8 +14328,8 @@ function Or() {
  * @return {Expr}
  */
 function Not(boolean) {
-  arity.exact(1, arguments);
-  return new Expr({ not: wrap(boolean) });
+  arity.exact(1, arguments)
+  return new Expr({ not: wrap(boolean) })
 }
 
 /**
@@ -14426,8 +14340,8 @@ function Not(boolean) {
  * @return {Expr}
  */
 function ToString(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ to_string: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ to_string: wrap(expr) })
 }
 
 /**
@@ -14438,8 +14352,56 @@ function ToString(expr) {
  * @return {Expr}
  */
 function ToNumber(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ to_number: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ to_number: wrap(expr) })
+}
+
+/**
+ * Converts an expression to an Object.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to an Object.
+ * @return {Expr}
+ */
+function ToObject(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ to_object: wrap(expr) })
+}
+
+/**
+ * Converts an expression to an Array.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to an Array.
+ * @return {Expr}
+ */
+function ToArray(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ to_array: wrap(expr) })
+}
+
+/**
+ * Converts an expression to a double value, if possible.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to a double.
+ * @return {Expr}
+ */
+function ToDouble(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ to_double: wrap(expr) })
+}
+
+/**
+ * Converts an expression to an integer value, if possible.
+ *
+ * @param {module:query~ExprArg} expression
+ *   An expression to convert to an integer.
+ * @return {Expr}
+ */
+function ToInteger(expr) {
+  arity.exact(1, arguments)
+  return new Expr({ to_integer: wrap(expr) })
 }
 
 /**
@@ -14450,8 +14412,8 @@ function ToNumber(expr) {
  * @return {Expr}
  */
 function ToTime(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ to_time: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ to_time: wrap(expr) })
 }
 
 /**
@@ -14462,8 +14424,8 @@ function ToTime(expr) {
  * @return {Expr}
  */
 function ToSeconds(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ to_seconds: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ to_seconds: wrap(expr) })
 }
 
 /**
@@ -14474,8 +14436,8 @@ function ToSeconds(expr) {
  * @return {Expr}
  */
 function ToMillis(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ to_millis: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ to_millis: wrap(expr) })
 }
 
 /**
@@ -14486,8 +14448,8 @@ function ToMillis(expr) {
  * @return {Expr}
  */
 function ToMicros(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ to_micros: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ to_micros: wrap(expr) })
 }
 
 /**
@@ -14498,8 +14460,8 @@ function ToMicros(expr) {
  * @return {Expr}
  */
 function DayOfWeek(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ day_of_week: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ day_of_week: wrap(expr) })
 }
 
 /**
@@ -14510,8 +14472,8 @@ function DayOfWeek(expr) {
  * @return {Expr}
  */
 function DayOfYear(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ day_of_year: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ day_of_year: wrap(expr) })
 }
 
 /**
@@ -14522,8 +14484,8 @@ function DayOfYear(expr) {
  * @return {Expr}
  */
 function DayOfMonth(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ day_of_month: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ day_of_month: wrap(expr) })
 }
 
 /**
@@ -14534,8 +14496,8 @@ function DayOfMonth(expr) {
  * @return {Expr}
  */
 function Hour(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ hour: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ hour: wrap(expr) })
 }
 
 /**
@@ -14546,8 +14508,8 @@ function Hour(expr) {
  * @return {Expr}
  */
 function Minute(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ minute: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ minute: wrap(expr) })
 }
 
 /**
@@ -14558,8 +14520,8 @@ function Minute(expr) {
  * @return {Expr}
  */
 function Second(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ second: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ second: wrap(expr) })
 }
 
 /**
@@ -14570,8 +14532,8 @@ function Second(expr) {
  * @return {Expr}
  */
 function Month(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ month: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ month: wrap(expr) })
 }
 
 /**
@@ -14582,8 +14544,8 @@ function Month(expr) {
  * @return {Expr}
  */
 function Year(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ year: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ year: wrap(expr) })
 }
 
 /**
@@ -14594,21 +14556,21 @@ function Year(expr) {
  * @return {Expr}
  */
 function ToDate(expr) {
-  arity.exact(1, arguments);
-  return new Expr({ to_date: wrap(expr) });
+  arity.exact(1, arguments)
+  return new Expr({ to_date: wrap(expr) })
 }
 
 /**
-  * Move database to a new hierarchy.
-  *
-  * @param {string}  from database reference to be moved.
-  * @param {string}  to new parent database reference.
-  * @return {Expr}   The expression wrapping the provided object.
-  * @see <a href="https://app.fauna.com/documentation/reference/queryapi#write-functions">FaunaDB Write Functions</a>
-  */
+ * Move database to a new hierarchy.
+ *
+ * @param {string}  from database reference to be moved.
+ * @param {string}  to new parent database reference.
+ * @return {Expr}   The expression wrapping the provided object.
+ * @see <a href="https://app.fauna.com/documentation/reference/queryapi#write-functions">FaunaDB Write Functions</a>
+ */
 function MoveDatabase(from, to) {
-  arity.exact(2, arguments);
-  return new Expr({ move_database: wrap(from), to: wrap(to) });
+  arity.exact(2, arguments)
+  return new Expr({ move_database: wrap(from), to: wrap(to) })
 }
 
 // Helpers
@@ -14617,15 +14579,26 @@ function MoveDatabase(from, to) {
  * @ignore
  */
 function arity(min, max, args) {
-  if ((min !== null && args.length < min) || (max !== null && args.length > max)) {
-    throw new errors.InvalidArity(min, max, args.length);
+  if (
+    (min !== null && args.length < min) ||
+    (max !== null && args.length > max)
+  ) {
+    throw new errors.InvalidArity(min, max, args.length)
   }
 }
 
-arity.exact = function (n, args) { arity(n, n, args); };
-arity.max = function (n, args) { arity(null, n, args); };
-arity.min = function (n, args) { arity(n, null, args); };
-arity.between = function (min, max, args) { arity(min, max, args); };
+arity.exact = function(n, args) {
+  arity(n, n, args)
+}
+arity.max = function(n, args) {
+  arity(null, n, args)
+}
+arity.min = function(n, args) {
+  arity(n, null, args)
+}
+arity.between = function(min, max, args) {
+  arity(min, max, args)
+}
 
 /** Adds optional parameters to the query.
  *
@@ -14633,12 +14606,12 @@ arity.between = function (min, max, args) { arity(min, max, args); };
  * */
 function params(mainParams, optionalParams) {
   for (var key in optionalParams) {
-    var val = optionalParams[key];
+    var val = optionalParams[key]
     if (val !== null) {
-      mainParams[key] = val;
+      mainParams[key] = val
     }
   }
-  return mainParams;
+  return mainParams
 }
 
 /**
@@ -14649,17 +14622,19 @@ function params(mainParams, optionalParams) {
  * @ignore
  */
 function varargs(values) {
-  var valuesAsArr = Array.isArray(values) ? values : Array.prototype.slice.call(values);
-  return values.length === 1 ? values[0] : valuesAsArr;
+  var valuesAsArr = Array.isArray(values)
+    ? values
+    : Array.prototype.slice.call(values)
+  return values.length === 1 ? values[0] : valuesAsArr
 }
 
 /**
  * @ignore
  */
 function argsToArray(args) {
-  var rv = [];
-  rv.push.apply(rv, args);
-  return rv;
+  var rv = []
+  rv.push.apply(rv, args)
+  return rv
 }
 
 /**
@@ -14667,9 +14642,9 @@ function argsToArray(args) {
  */
 function defaults(param, def) {
   if (param === undefined) {
-    return def;
+    return def
   } else {
-    return param;
+    return param
   }
 }
 
@@ -14683,27 +14658,29 @@ function defaults(param, def) {
  * @private
  */
 function wrap(obj) {
-  arity.exact(1, arguments);
+  arity.exact(1, arguments)
   if (obj === null) {
-    return null;
+    return null
   } else if (obj instanceof Expr) {
-    return obj;
+    return obj
   } else if (typeof obj === 'symbol') {
     return obj.toString().replace(/Symbol\((.*)\)/, function(str, symbol) {
-      return symbol;
-    });
+      return symbol
+    })
   } else if (typeof obj === 'function') {
-    return Lambda(obj);
+    return Lambda(obj)
   } else if (Array.isArray(obj)) {
-    return new Expr(obj.map(function (elem) {
-      return wrap(elem);
-    }));
+    return new Expr(
+      obj.map(function(elem) {
+        return wrap(elem)
+      })
+    )
   } else if (obj instanceof Uint8Array || obj instanceof ArrayBuffer) {
-    return new values.Bytes(obj);
+    return new values.Bytes(obj)
   } else if (typeof obj === 'object') {
-    return new Expr({ object: wrapValues(obj) });
+    return new Expr({ object: wrapValues(obj) })
   } else {
-    return obj;
+    return obj
   }
 }
 
@@ -14717,15 +14694,15 @@ function wrap(obj) {
  */
 function wrapValues(obj) {
   if (obj !== null) {
-    var rv = {};
+    var rv = {}
 
     Object.keys(obj).forEach(function(key) {
-      rv[key] = wrap(obj[key]);
-    });
+      rv[key] = wrap(obj[key])
+    })
 
-    return rv;
+    return rv
   } else {
-    return null;
+    return null
   }
 }
 
@@ -14751,6 +14728,29 @@ module.exports = {
   Append: Append,
   IsEmpty: IsEmpty,
   IsNonEmpty: IsNonEmpty,
+  IsNumber: IsNumber,
+  IsDouble: IsDouble,
+  IsInteger: IsInteger,
+  IsBoolean: IsBoolean,
+  IsNull: IsNull,
+  IsBytes: IsBytes,
+  IsTimestamp: IsTimestamp,
+  IsDate: IsDate,
+  IsString: IsString,
+  IsArray: IsArray,
+  IsObject: IsObject,
+  IsRef: IsRef,
+  IsSet: IsSet,
+  IsDoc: IsDoc,
+  IsLambda: IsLambda,
+  IsCollection: IsCollection,
+  IsDatabase: IsDatabase,
+  IsIndex: IsIndex,
+  IsFunction: IsFunction,
+  IsKey: IsKey,
+  IsToken: IsToken,
+  IsCredentials: IsCredentials,
+  IsRole: IsRole,
   Get: Get,
   KeyFromSecret: KeyFromSecret,
   Reduce: Reduce,
@@ -14762,7 +14762,10 @@ module.exports = {
   Delete: Delete,
   Insert: Insert,
   Remove: Remove,
-  CreateClass: deprecate(CreateClass, 'CreateClass() is deprecated, use CreateCOllection() instead'),
+  CreateClass: deprecate(
+    CreateClass,
+    'CreateClass() is deprecated, use CreateCollection() instead'
+  ),
   CreateCollection: CreateCollection,
   CreateDatabase: CreateDatabase,
   CreateIndex: CreateIndex,
@@ -14808,6 +14811,9 @@ module.exports = {
   UpperCase: UpperCase,
   Format: Format,
   Time: Time,
+  TimeAdd: TimeAdd,
+  TimeSubtract: TimeSubtract,
+  TimeDiff: TimeDiff,
   Epoch: Epoch,
   Date: Date,
   Now: Now,
@@ -14819,7 +14825,10 @@ module.exports = {
   Collection: Collection,
   Function: FunctionFn,
   Role: Role,
-  Classes: deprecate(Classes, 'Classes() is deprecated, use Collections() instead'),
+  Classes: deprecate(
+    Classes,
+    'Classes() is deprecated, use Collections() instead'
+  ),
   Collections: Collections,
   Databases: Databases,
   Indexes: Indexes,
@@ -14831,7 +14840,7 @@ module.exports = {
   Equals: Equals,
   Contains: Contains,
   Select: Select,
-  SelectAll: SelectAll,
+  SelectAll: deprecate(SelectAll, 'SelectAll() is deprecated. Avoid use.'),
   Abs: Abs,
   Add: Add,
   BitAnd: BitAnd,
@@ -14853,6 +14862,8 @@ module.exports = {
   Count: Count,
   Sum: Sum,
   Mean: Mean,
+  Any: Any,
+  All: All,
   Acos: Acos,
   Asin: Asin,
   Atan: Atan,
@@ -14878,6 +14889,10 @@ module.exports = {
   Not: Not,
   ToString: ToString,
   ToNumber: ToNumber,
+  ToObject: ToObject,
+  ToArray: ToArray,
+  ToDouble: ToDouble,
+  ToInteger: ToInteger,
   ToTime: ToTime,
   ToSeconds: ToSeconds,
   ToMicros: ToMicros,
@@ -14891,21 +14906,21 @@ module.exports = {
   Month: Month,
   Year: Year,
   ToDate: ToDate,
-  MoveDatabase : MoveDatabase,
-  wrap: wrap
-};
+  MoveDatabase: MoveDatabase,
+  wrap: wrap,
+}
 
-},{"./Expr":54,"./errors":60,"./values":62,"fn-annotate":10,"object-assign":15,"util-deprecate":48}],62:[function(require,module,exports){
-'use strict';
+},{"./Expr":51,"./errors":57,"./values":59,"fn-annotate":9,"object-assign":13,"util-deprecate":45}],59:[function(require,module,exports){
+'use strict'
 
-var base64 = require('base64-js');
-var deprecate = require('util-deprecate');
-var errors = require('./errors');
-var Expr = require('./Expr');
-var util = require('util');
+var base64 = require('base64-js')
+var deprecate = require('util-deprecate')
+var errors = require('./errors')
+var Expr = require('./Expr')
+var util = require('util')
 
-var customInspect = util && util.inspect && util.inspect.custom;
-var stringify = (util && util.inspect) || JSON.stringify;
+var customInspect = util && util.inspect && util.inspect.custom
+var stringify = (util && util.inspect) || JSON.stringify
 
 /**
  * FaunaDB value types. Generally, these collections do not need to be instantiated
@@ -14929,9 +14944,9 @@ var stringify = (util && util.inspect) || JSON.stringify;
  * @abstract
  * @constructor
  */
-function Value() { }
+function Value() {}
 
-util.inherits(Value, Expr);
+util.inherits(Value, Expr)
 
 /**
  * FaunaDB ref.
@@ -14948,14 +14963,14 @@ util.inherits(Value, Expr);
  * @constructor
  */
 function Ref(id, collection, database) {
-  if (!id) throw new errors.InvalidValue('id cannot be null or undefined');
+  if (!id) throw new errors.InvalidValue('id cannot be null or undefined')
 
-  this.value = { id: id };
-  if (collection) this.value['collection'] = collection;
-  if (database) this.value['database'] = database;
+  this.value = { id: id }
+  if (collection) this.value['collection'] = collection
+  if (database) this.value['database'] = database
 }
 
-util.inherits(Ref, Value);
+util.inherits(Ref, Value)
 
 /**
  * Gets the collection part out of the Ref.
@@ -14963,9 +14978,11 @@ util.inherits(Ref, Value);
  * @member {string}
  * @name module:values~Ref#collection
  */
-Object.defineProperty(Ref.prototype, 'collection', { get: function() {
-  return this.value['collection'];
-} });
+Object.defineProperty(Ref.prototype, 'collection', {
+  get: function() {
+    return this.value['collection']
+  },
+})
 
 /**
  * DEPRECATED. Gets the class part out of the Ref.
@@ -14973,9 +14990,11 @@ Object.defineProperty(Ref.prototype, 'collection', { get: function() {
  * @member {string}
  * @name module:values~Ref#class
  */
-Object.defineProperty(Ref.prototype, 'class', {get: deprecate(function() {
-  return this.value['collection'];
-}, 'class is deprecated, use collection instead')});
+Object.defineProperty(Ref.prototype, 'class', {
+  get: deprecate(function() {
+    return this.value['collection']
+  }, 'class is deprecated, use collection instead'),
+})
 
 /**
  * Gets the database part out of the Ref.
@@ -14983,9 +15002,11 @@ Object.defineProperty(Ref.prototype, 'class', {get: deprecate(function() {
  * @member {Ref}
  * @name module:values~Ref#database
  */
-Object.defineProperty(Ref.prototype, 'database', { get: function() {
-  return this.value['database'];
-} });
+Object.defineProperty(Ref.prototype, 'database', {
+  get: function() {
+    return this.value['database']
+  },
+})
 
 /**
  * Gets the id part out of the Ref.
@@ -14993,46 +15014,50 @@ Object.defineProperty(Ref.prototype, 'database', { get: function() {
  * @member {Ref}
  * @name module:values~Ref#id
  */
-Object.defineProperty(Ref.prototype, 'id', { get: function() {
-  return this.value['id'];
-} });
+Object.defineProperty(Ref.prototype, 'id', {
+  get: function() {
+    return this.value['id']
+  },
+})
 
 /** @ignore */
 Ref.prototype.toJSON = function() {
-  return { '@ref': this.value };
-};
+  return { '@ref': this.value }
+}
 
 wrapToString(Ref, function() {
   var constructors = {
-    collections: "Collection",
-    databases: "Database",
-    indexes: "Index",
-    functions: "Function",
-    roles: "Role"
-  };
+    collections: 'Collection',
+    databases: 'Database',
+    indexes: 'Index',
+    functions: 'Function',
+    roles: 'Role',
+  }
 
   var toString = function(ref, prevDb) {
     if (ref.collection === undefined && ref.database === undefined)
-      return ref.id.charAt(0).toUpperCase() + ref.id.slice(1) + '(' + prevDb + ')';
+      return (
+        ref.id.charAt(0).toUpperCase() + ref.id.slice(1) + '(' + prevDb + ')'
+      )
 
-    var constructor = constructors[ref.collection.id];
+    var constructor = constructors[ref.collection.id]
     if (constructor !== undefined) {
-      var db = ref.database !== undefined ? ', ' +  ref.database.toString() : '';
-      return constructor + '("' + ref.id + '"' + db + ')';
+      var db = ref.database !== undefined ? ', ' + ref.database.toString() : ''
+      return constructor + '("' + ref.id + '"' + db + ')'
     }
 
-    var db = ref.database !== undefined ? ref.database.toString() : '';
+    var db = ref.database !== undefined ? ref.database.toString() : ''
 
-    return 'Ref(' + toString(ref.collection, db) + ', "' + ref.id + '")';
-  };
+    return 'Ref(' + toString(ref.collection, db) + ', "' + ref.id + '")'
+  }
 
-  return toString(this, '');
-});
+  return toString(this, '')
+})
 
 /** @ignore */
 Ref.prototype.valueOf = function() {
-  return this.value;
-};
+  return this.value
+}
 
 /**
  * Whether these are both Refs and have the same value.
@@ -15040,13 +15065,15 @@ Ref.prototype.valueOf = function() {
  * @returns {boolean}
  */
 Ref.prototype.equals = function(other) {
-  return (other instanceof Ref) &&
+  return (
+    other instanceof Ref &&
     this.id === other.id &&
     ((this.collection === undefined && other.collection === undefined) ||
       this.collection.equals(other.collection)) &&
     ((this.database === undefined && other.database === undefined) ||
       this.database.equals(other.database))
-};
+  )
+}
 
 var Native = {
   COLLECTIONS: new Ref('collections'),
@@ -15054,20 +15081,26 @@ var Native = {
   DATABASES: new Ref('databases'),
   FUNCTIONS: new Ref('functions'),
   ROLES: new Ref('roles'),
-  KEYS: new Ref('keys')
-};
+  KEYS: new Ref('keys'),
+}
 
 Native.fromName = function(name) {
-  switch(name) {
-    case 'collections': return Native.COLLECTIONS;
-    case 'indexes': return Native.INDEXES;
-    case 'databases': return Native.DATABASES;
-    case 'functions': return Native.FUNCTIONS;
-    case 'roles': return Native.ROLES;
-    case 'keys': return Native.KEYS;
+  switch (name) {
+    case 'collections':
+      return Native.COLLECTIONS
+    case 'indexes':
+      return Native.INDEXES
+    case 'databases':
+      return Native.DATABASES
+    case 'functions':
+      return Native.FUNCTIONS
+    case 'roles':
+      return Native.ROLES
+    case 'keys':
+      return Native.KEYS
   }
-  return new Ref(name);
-};
+  return new Ref(name)
+}
 
 /**
  * FaunaDB Set.
@@ -15081,19 +15114,19 @@ Native.fromName = function(name) {
  */
 function SetRef(value) {
   /** Raw query object. */
-  this.value = value;
+  this.value = value
 }
 
-util.inherits(SetRef, Value);
+util.inherits(SetRef, Value)
 
 wrapToString(SetRef, function() {
-  return Expr.toString(this.value);
-});
+  return Expr.toString(this.value)
+})
 
 /** @ignore */
 SetRef.prototype.toJSON = function() {
-  return { '@set': this.value };
-};
+  return { '@set': this.value }
+}
 
 /** FaunaDB time. See the [docs](https://app.fauna.com/documentation/reference/queryapi#special-type).
  *
@@ -15103,15 +15136,15 @@ SetRef.prototype.toJSON = function() {
  */
 function FaunaTime(value) {
   if (value instanceof Date) {
-    value = value.toISOString();
+    value = value.toISOString()
   } else if (!(value.charAt(value.length - 1) === 'Z')) {
-    throw new errors.InvalidValue('Only allowed timezone is \'Z\', got: ' + value);
+    throw new errors.InvalidValue("Only allowed timezone is 'Z', got: " + value)
   }
 
-  this.value = value;
+  this.value = value
 }
 
-util.inherits(FaunaTime, Value);
+util.inherits(FaunaTime, Value)
 
 /**
  * Returns the date wrapped by this object.
@@ -15120,18 +15153,20 @@ util.inherits(FaunaTime, Value);
  * @member {Date}
  * @name module:values~FaunaTime#date
  */
-Object.defineProperty(FaunaTime.prototype, 'date', { get: function() {
-  return new Date(this.value);
-} });
+Object.defineProperty(FaunaTime.prototype, 'date', {
+  get: function() {
+    return new Date(this.value)
+  },
+})
 
 wrapToString(FaunaTime, function() {
-  return 'Time("' + this.value + '")';
-});
+  return 'Time("' + this.value + '")'
+})
 
 /** @ignore */
 FaunaTime.prototype.toJSON = function() {
-  return { '@ts': this.value };
-};
+  return { '@ts': this.value }
+}
 
 /** FaunaDB date. See the [docs](https://app.fauna.com/documentation/reference/queryapi#special-type).
  *
@@ -15143,34 +15178,36 @@ FaunaTime.prototype.toJSON = function() {
 function FaunaDate(value) {
   if (value instanceof Date) {
     // The first 10 characters 'YYYY-MM-DD' are the date portion.
-    value = value.toISOString().slice(0, 10);
+    value = value.toISOString().slice(0, 10)
   }
 
   /**
    * ISO8601 date.
    * @type {string}
    */
-  this.value = value;
+  this.value = value
 }
 
-util.inherits(FaunaDate, Value);
+util.inherits(FaunaDate, Value)
 
 /**
  * @member {Date}
  * @name module:values~FaunaDate#date
  */
-Object.defineProperty(FaunaDate.prototype, 'date', { get: function() {
-  return new Date(this.value);
-} });
+Object.defineProperty(FaunaDate.prototype, 'date', {
+  get: function() {
+    return new Date(this.value)
+  },
+})
 
 wrapToString(FaunaDate, function() {
-  return 'Date("' + this.value + '")';
-});
+  return 'Date("' + this.value + '")'
+})
 
 /** @ignore */
-FaunaDate.prototype.toJSON = function()  {
-  return { '@date': this.value };
-};
+FaunaDate.prototype.toJSON = function() {
+  return { '@date': this.value }
+}
 
 /** FaunaDB bytes. See the [docs](https://app.fauna.com/documentation/reference/queryapi#special-type).
  *
@@ -15182,26 +15219,29 @@ FaunaDate.prototype.toJSON = function()  {
  */
 function Bytes(value) {
   if (value instanceof ArrayBuffer) {
-    this.value = new Uint8Array(value);
+    this.value = new Uint8Array(value)
   } else if (typeof value === 'string') {
-    this.value = base64.toByteArray(value);
+    this.value = base64.toByteArray(value)
   } else if (value instanceof Uint8Array) {
-    this.value = value;
+    this.value = value
   } else {
-    throw new errors.InvalidValue('Bytes type expect argument to be either Uint8Array|ArrayBuffer|string, got: ' + stringify(value));
+    throw new errors.InvalidValue(
+      'Bytes type expect argument to be either Uint8Array|ArrayBuffer|string, got: ' +
+        stringify(value)
+    )
   }
 }
 
-util.inherits(Bytes, Value);
+util.inherits(Bytes, Value)
 
 wrapToString(Bytes, function() {
-  return 'Bytes("' + base64.fromByteArray(this.value) + '")';
-});
+  return 'Bytes("' + base64.fromByteArray(this.value) + '")'
+})
 
 /** @ignore */
-Bytes.prototype.toJSON = function()  {
-  return { '@bytes': base64.fromByteArray(this.value) };
-};
+Bytes.prototype.toJSON = function() {
+  return { '@bytes': base64.fromByteArray(this.value) }
+}
 
 /** FaunaDB query. See the [docs](https://app.fauna.com/documentation/reference/queryapi#special-type).
  *
@@ -15210,27 +15250,27 @@ Bytes.prototype.toJSON = function()  {
  * @constructor
  */
 function Query(value) {
-  this.value = value;
+  this.value = value
 }
 
-util.inherits(Query, Value);
+util.inherits(Query, Value)
 
 wrapToString(Query, function() {
-  return 'Query(' + Expr.toString(this.value) + ')';
-});
+  return 'Query(' + Expr.toString(this.value) + ')'
+})
 
 /** @ignore */
-Query.prototype.toJSON = function()  {
-  return { '@query': this.value };
-};
+Query.prototype.toJSON = function() {
+  return { '@query': this.value }
+}
 
 /** @ignore */
 function wrapToString(type, fn) {
-  type.prototype.toString = fn;
-  type.prototype.inspect = fn;
+  type.prototype.toString = fn
+  type.prototype.inspect = fn
 
   if (customInspect) {
-    type.prototype[customInspect] = fn;
+    type.prototype[customInspect] = fn
   }
 }
 
@@ -15242,8 +15282,8 @@ module.exports = {
   FaunaTime: FaunaTime,
   FaunaDate: FaunaDate,
   Bytes: Bytes,
-  Query: Query
-};
+  Query: Query,
+}
 
-},{"./Expr":54,"./errors":60,"base64-js":2,"util":51,"util-deprecate":48}]},{},[1])(1)
+},{"./Expr":51,"./errors":57,"base64-js":2,"util":48,"util-deprecate":45}]},{},[1])(1)
 });
